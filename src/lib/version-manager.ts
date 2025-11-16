@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
 import type { Plugin, PluginContext } from '../types/plugin';
+import { ConfigManager } from './config';
 
 export class VersionManager {
   public readonly cvmDir: string;
@@ -10,12 +11,14 @@ export class VersionManager {
   public readonly currentLink: string;
   public readonly binDir: string;
   private plugins: Plugin[] = [];
+  private config: ConfigManager;
 
   constructor() {
     this.cvmDir = path.join(os.homedir(), '.cvm');
     this.versionsDir = path.join(this.cvmDir, 'versions');
     this.currentLink = path.join(this.cvmDir, 'current');
     this.binDir = path.join(this.cvmDir, 'bin');
+    this.config = new ConfigManager(this.cvmDir);
 
     this.ensureDirectories();
   }
@@ -439,5 +442,83 @@ export class VersionManager {
 
     // Execute afterUninstall hook
     await this.executeHook('afterUninstall', version);
+  }
+
+  /**
+   * Clean a version (remove extracted/installed, keep raw if configured)
+   */
+  public async clean(version: string): Promise<void> {
+    const versionDir = path.join(this.versionsDir, version);
+
+    if (!fs.existsSync(versionDir)) {
+      throw new Error(`Version ${version} is not installed`);
+    }
+
+    const current = this.getCurrentVersion();
+    if (current === version) {
+      throw new Error(
+        `Cannot clean currently active version ${version}. Switch to another version first.`
+      );
+    }
+
+    console.log(`🧹 Cleaning ${version}...`);
+
+    const extractedDir = path.join(versionDir, 'extracted');
+    const installedDir = path.join(versionDir, 'installed');
+
+    // Remove extracted and installed
+    if (fs.existsSync(extractedDir)) {
+      fs.rmSync(extractedDir, { recursive: true, force: true });
+    }
+    if (fs.existsSync(installedDir)) {
+      fs.rmSync(installedDir, { recursive: true, force: true });
+    }
+
+    const keepTarballs = this.config.get('keepTarballs');
+    if (!keepTarballs) {
+      // Remove entire version directory
+      fs.rmSync(versionDir, { recursive: true, force: true });
+      console.log(`✅ Cleaned ${version} (removed all)`);
+    } else {
+      // Keep raw tarball
+      console.log(`✅ Cleaned ${version} (kept tarball)`);
+    }
+  }
+
+  /**
+   * Clean all versions except specified ones
+   */
+  public async cleanExcept(exceptVersions: string[]): Promise<void> {
+    const installed = this.getInstalledVersions();
+    const current = this.getCurrentVersion();
+
+    // Add current to exceptions
+    const exceptions = new Set(exceptVersions);
+    if (current) {
+      exceptions.add(current);
+    }
+
+    console.log(`\n🧹 Cleaning all versions except: ${Array.from(exceptions).join(', ')}\n`);
+
+    let cleaned = 0;
+    for (const version of installed) {
+      if (!exceptions.has(version)) {
+        try {
+          await this.clean(version);
+          cleaned++;
+        } catch (error: any) {
+          console.warn(`⚠️  Failed to clean ${version}: ${error.message}`);
+        }
+      }
+    }
+
+    console.log(`\n✅ Cleaned ${cleaned} versions`);
+  }
+
+  /**
+   * Get config manager
+   */
+  public getConfig(): ConfigManager {
+    return this.config;
   }
 }

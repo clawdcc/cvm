@@ -167,6 +167,75 @@ program
     console.log(binPath);
   });
 
+// cvm config
+program
+  .command('config')
+  .description('Manage CVM configuration')
+  .argument('[action]', 'get, set, show')
+  .argument('[key]', 'Config key')
+  .argument('[value]', 'Config value')
+  .action((action: string, key: string, value: string) => {
+    const config = vm.getConfig();
+
+    if (!action || action === 'show') {
+      config.show();
+      return;
+    }
+
+    if (action === 'get') {
+      if (!key) {
+        console.error('\n❌ Error: Please specify a config key\n');
+        process.exit(1);
+      }
+      const val = config.get(key as any);
+      console.log(val);
+      return;
+    }
+
+    if (action === 'set') {
+      if (!key || value === undefined) {
+        console.error('\n❌ Error: Please specify key and value\n');
+        process.exit(1);
+      }
+
+      // Parse boolean values
+      let parsedValue: any = value;
+      if (value === 'true') parsedValue = true;
+      if (value === 'false') parsedValue = false;
+      if (!isNaN(Number(value))) parsedValue = Number(value);
+
+      config.set(key as any, parsedValue);
+      console.log(`✅ Set ${key} = ${parsedValue}`);
+      return;
+    }
+
+    console.error(`\n❌ Unknown action: ${action}\n`);
+    process.exit(1);
+  });
+
+// cvm clean
+program
+  .command('clean')
+  .description('Clean version(s) - remove extracted/installed, keep raw')
+  .argument('[version]', 'Version to clean (or use --except)')
+  .option('--except <versions>', 'Clean all except these (comma-separated)')
+  .action(async (version: string | undefined, options: any) => {
+    try {
+      if (options.except) {
+        const exceptions = options.except.split(',').map((v: string) => v.trim());
+        await vm.cleanExcept(exceptions);
+      } else if (version) {
+        await vm.clean(version);
+      } else {
+        console.error('\n❌ Error: Specify version or use --except\n');
+        process.exit(1);
+      }
+    } catch (error: any) {
+      console.error(`\n❌ Error: ${error.message}\n`);
+      process.exit(1);
+    }
+  });
+
 // cvm plugins
 program
   .command('plugins')

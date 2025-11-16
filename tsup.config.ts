@@ -5,6 +5,7 @@ export default defineConfig({
     cvm: 'src/bin/cvm.ts',
     'version-manager': 'src/lib/version-manager.ts',
     'plugin-loader': 'src/lib/plugin-loader.ts',
+    'config': 'src/lib/config.ts',
     'plugins/benchmark': 'src/plugins/benchmark.ts',
   },
   format: ['cjs'],
