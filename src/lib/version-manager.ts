@@ -652,12 +652,16 @@ export class VersionManager {
    * Test if a version is viable (can actually run)
    * Returns { viable: boolean, reason?: string }
    *
-   * Note: --version doesn't detect non-viable versions. We need to run a real command
-   * because old versions (< 1.0.24) only show the "needs update" error during actual usage.
+   * Strategy: Spawn Claude with stdin pipe and send test input
+   * - Old versions (< 1.0.24): Immediately output "needs update" error to stderr
+   * - New versions (>= 1.0.24): Wait for API (no output until response ready)
+   * - Detection: Timeout with no output = viable. Output with error = not viable.
+   *
+   * Note: --version and --help don't trigger the error, only actual commands do.
    */
   public async isVersionViable(
     version: string,
-    timeoutMs: number = 30000
+    timeoutMs: number = 3000
   ): Promise<{ viable: boolean; reason?: string }> {
     if (!this.isInstalled(version)) {
       throw new Error(`Version ${version} is not installed. Run: cvm install ${version}`);
@@ -683,11 +687,23 @@ export class VersionManager {
       let output = '';
       let timedOut = false;
 
-      // Run a simple print command that will trigger the "needs update" error
-      // --help and --version don't trigger it, but actual API commands do
-      const proc = spawn(claudePath, ['-p', 'test'], {
-        stdio: ['ignore', 'pipe', 'pipe'],
+      // Strategy: Spawn with stdin pipe and write a test input
+      // Old versions (<1.0.24) immediately output "needs update" error to stderr
+      // New versions (>=1.0.24) don't output anything (wait for API response)
+      // This is faster and simpler than using -p flag
+      const proc = spawn(claudePath, [], {
+        stdio: ['pipe', 'pipe', 'pipe'],
       });
+
+      // Write test input to stdin after a brief delay
+      setTimeout(() => {
+        try {
+          proc.stdin.write('test\n');
+          proc.stdin.end();
+        } catch (e) {
+          // Process may have already exited
+        }
+      }, 100);
 
       proc.stdout.on('data', (data) => {
         output += data.toString();
@@ -697,9 +713,8 @@ export class VersionManager {
         output += data.toString();
       });
 
-      //  Strategy: Old versions (<1.0.24) immediately output "needs update" error.
-      // New versions (>=1.0.24) don't output anything until API response is ready.
-      // So: timeout WITHOUT output = viable (just slow). Output with error = not viable.
+      // Timeout strategy: No output = viable (just waiting for API)
+      // Output with error message = not viable
       const timeout = setTimeout(() => {
         timedOut = true;
         proc.kill('SIGKILL');

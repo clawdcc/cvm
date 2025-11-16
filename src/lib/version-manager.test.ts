@@ -132,11 +132,12 @@ describe('VersionManager', () => {
         return;
       }
 
-      const result = await realVm.isVersionViable('0.2.9', 5000);
+      // Non-viable versions fail quickly (< 1s), so 2s timeout is plenty
+      const result = await realVm.isVersionViable('0.2.9', 2000);
       expect(result.viable).toBe(false);
       // Should timeout or show update message
       expect(result.reason).toMatch(/timeout|1\.0\.24|update/i);
-    }, 10000);
+    }, 5000);
 
     it('should detect working versions (>= 1.0.24)', async () => {
       // Skip if version not installed
@@ -145,10 +146,11 @@ describe('VersionManager', () => {
         return;
       }
 
-      const result = await realVm.isVersionViable('2.0.42', 5000);
+      // Viable versions timeout with no output (waiting for API), so 2s is enough
+      const result = await realVm.isVersionViable('2.0.42', 2000);
       expect(result.viable).toBe(true);
       expect(result.reason).toBeUndefined();
-    }, 10000);
+    }, 5000);
 
     it('should handle timeout for hanging versions', async () => {
       // Skip if version not installed
