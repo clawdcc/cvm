@@ -116,4 +116,56 @@ describe('VersionManager', () => {
       expect(fs.existsSync(version2)).toBe(true);
     });
   });
+
+  describe('isVersionViable', () => {
+    let realVm: VersionManager;
+
+    beforeEach(() => {
+      // Use real VersionManager for viability tests (needs real installations)
+      realVm = new VersionManager();
+    });
+
+    it('should detect non-working versions (< 1.0.24)', async () => {
+      // Skip if version not installed
+      if (!realVm.isInstalled('0.2.9')) {
+        console.log('⏭️  Skipping: 0.2.9 not installed');
+        return;
+      }
+
+      const result = await realVm.isVersionViable('0.2.9', 5000);
+      expect(result.viable).toBe(false);
+      // Should timeout or show update message
+      expect(result.reason).toMatch(/timeout|1\.0\.24|update/i);
+    }, 10000);
+
+    it('should detect working versions (>= 1.0.24)', async () => {
+      // Skip if version not installed
+      if (!realVm.isInstalled('2.0.42')) {
+        console.log('⏭️  Skipping: 2.0.42 not installed');
+        return;
+      }
+
+      const result = await realVm.isVersionViable('2.0.42', 5000);
+      expect(result.viable).toBe(true);
+      expect(result.reason).toBeUndefined();
+    }, 10000);
+
+    it('should handle timeout for hanging versions', async () => {
+      // Skip if version not installed
+      if (!realVm.isInstalled('0.2.10')) {
+        console.log('⏭️  Skipping: 0.2.10 not installed');
+        return;
+      }
+
+      const result = await realVm.isVersionViable('0.2.10', 3000);
+      expect(result.viable).toBe(false);
+      expect(result.reason).toMatch(/timeout|hang|update/i);
+    }, 10000);
+
+    it('should throw error for non-existent version', async () => {
+      await expect(realVm.isVersionViable('99.99.99')).rejects.toThrow(
+        'Version 99.99.99 is not installed'
+      );
+    });
+  });
 });

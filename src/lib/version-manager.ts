@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import type { Plugin, PluginContext } from '../types/plugin';
 import { ConfigManager } from './config';
 import packageJson from '../../package.json';
@@ -646,5 +646,132 @@ export class VersionManager {
    */
   public getConfig(): ConfigManager {
     return this.config;
+  }
+
+  /**
+   * Test if a version is viable (can actually run)
+   * Returns { viable: boolean, reason?: string }
+   *
+   * Note: --version doesn't detect non-viable versions. We need to run a real command
+   * because old versions (< 1.0.24) only show the "needs update" error during actual usage.
+   */
+  public async isVersionViable(
+    version: string,
+    timeoutMs: number = 30000
+  ): Promise<{ viable: boolean; reason?: string }> {
+    if (!this.isInstalled(version)) {
+      throw new Error(`Version ${version} is not installed. Run: cvm install ${version}`);
+    }
+
+    const claudePath = path.join(
+      this.versionsDir,
+      version,
+      'installed',
+      'node_modules',
+      '.bin',
+      'claude'
+    );
+
+    if (!fs.existsSync(claudePath)) {
+      return {
+        viable: false,
+        reason: 'Claude binary not found in installed directory',
+      };
+    }
+
+    return new Promise((resolve) => {
+      let output = '';
+      let timedOut = false;
+
+      // Run a simple print command that will trigger the "needs update" error
+      // --help and --version don't trigger it, but actual API commands do
+      const proc = spawn(claudePath, ['-p', 'test'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      proc.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      proc.stderr.on('data', (data) => {
+        output += data.toString();
+      });
+
+      //  Strategy: Old versions (<1.0.24) immediately output "needs update" error.
+      // New versions (>=1.0.24) don't output anything until API response is ready.
+      // So: timeout WITHOUT output = viable (just slow). Output with error = not viable.
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        proc.kill('SIGKILL');
+
+        // If we got NO output during timeout, version is viable (just waiting for API)
+        // If we got output, check if it's the error message
+        if (output.length === 0) {
+          resolve({ viable: true }); // No output = viable version waiting for API
+        } else if (output.includes('1.0.24') || output.includes('needs update')) {
+          resolve({
+            viable: false,
+            reason: 'Version requires update to 1.0.24 or higher',
+          });
+        } else {
+          resolve({ viable: true }); // Got some output, assume viable
+        }
+      }, timeoutMs);
+
+      proc.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      proc.stderr.on('data', (data) => {
+        output += data.toString();
+
+        // If we immediately get error output, resolve quickly
+        if (output.includes('1.0.24') || output.includes('needs update')) {
+          clearTimeout(timeout);
+          proc.kill();
+          resolve({
+            viable: false,
+            reason: 'Version requires update to 1.0.24 or higher',
+          });
+        }
+      });
+
+      proc.on('close', (code) => {
+        clearTimeout(timeout);
+
+        if (timedOut) {
+          return; // Already resolved
+        }
+
+        // Check for "needs update" message in output
+        if (output.includes('1.0.24') || output.includes('needs update')) {
+          resolve({
+            viable: false,
+            reason: 'Version requires update to 1.0.24 or higher',
+          });
+          return;
+        }
+
+        // Successfully completed
+        if (code === 0 || code === null) {
+          resolve({ viable: true });
+          return;
+        }
+
+        // Other failure
+        resolve({
+          viable: false,
+          reason: `Exited with code ${code}: ${output.substring(0, 100)}`,
+        });
+      });
+
+      proc.on('error', (error) => {
+        clearTimeout(timeout);
+        resolve({
+          viable: false,
+          reason: `Failed to spawn: ${error.message}`,
+        });
+      });
+    });
   }
 }
