@@ -2,13 +2,17 @@
   "name": "@yourorg/cvm",
   "version": "0.1.0",
   "description": "Claude Version Manager - nvm for Claude Code",
-  "main": "lib/index.js",
+  "main": "dist/version-manager.js",
   "bin": {
-    "cvm": "./bin/cvm.js"
+    "cvm": "./dist/cvm.js"
   },
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "claude",
@@ -28,7 +32,11 @@
     "commander": "^11.1.0"
   },
   "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   },
-  "type": "commonjs"
+  "type": "commonjs",
+  "types": "dist/version-manager.d.ts"
 }

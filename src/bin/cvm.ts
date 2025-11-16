@@ -1,9 +1,42 @@
 #!/usr/bin/env node
 
-const { program } = require('commander');
-const VersionManager = require('../lib/version-manager');
+import { program } from 'commander';
+import { spawn } from 'child_process';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
+import { VersionManager } from '../lib/version-manager';
+import { PluginLoader } from '../lib/plugin-loader';
+
+async function loadPlugins(
+  vm: VersionManager,
+  loader: PluginLoader
+): Promise<void> {
+  const pluginsDir = path.join(os.homedir(), '.cvm/plugins');
+
+  if (fs.existsSync(pluginsDir)) {
+    const plugins = await loader.loadPluginsFromDirectory(pluginsDir);
+    plugins.forEach((plugin) => {
+      vm.registerPlugin(plugin);
+      console.log(
+        `✓ Loaded plugin: ${plugin.metadata.name} v${plugin.metadata.version}`
+      );
+    });
+  }
+}
 
 const vm = new VersionManager();
+const pluginLoader = new PluginLoader();
+
+// Load plugins before running commands
+(async () => {
+  await loadPlugins(vm, pluginLoader);
+
+  // Now execute the CLI
+  executeCommand();
+})();
+
+function executeCommand() {
 
 program
   .name('cvm')
@@ -14,7 +47,7 @@ program
 program
   .command('install <version>')
   .description('Install a specific version of Claude Code')
-  .action(async (version) => {
+  .action(async (version: string) => {
     try {
       // Allow "latest" keyword
       if (version === 'latest') {
@@ -23,8 +56,8 @@ program
         console.log(`Latest version: ${version}\n`);
       }
 
-      vm.install(version);
-    } catch (error) {
+      await vm.install(version);
+    } catch (error: any) {
       console.error(`\n❌ Error: ${error.message}\n`);
       process.exit(1);
     }
@@ -34,10 +67,10 @@ program
 program
   .command('use <version>')
   .description('Switch to a specific version')
-  .action((version) => {
+  .action(async (version: string) => {
     try {
-      vm.use(version);
-    } catch (error) {
+      await vm.use(version);
+    } catch (error: any) {
       console.error(`\n❌ Error: ${error.message}\n`);
       process.exit(1);
     }
@@ -51,7 +84,7 @@ program
   .action(() => {
     try {
       vm.list();
-    } catch (error) {
+    } catch (error: any) {
       console.error(`\n❌ Error: ${error.message}\n`);
       process.exit(1);
     }
@@ -65,7 +98,7 @@ program
   .action(() => {
     try {
       vm.listRemote();
-    } catch (error) {
+    } catch (error: any) {
       console.error(`\n❌ Error: ${error.message}\n`);
       process.exit(1);
     }
@@ -78,7 +111,7 @@ program
   .action(() => {
     try {
       vm.current();
-    } catch (error) {
+    } catch (error: any) {
       console.error(`\n❌ Error: ${error.message}\n`);
       process.exit(1);
     }
@@ -89,10 +122,10 @@ program
   .command('uninstall <version>')
   .alias('rm')
   .description('Uninstall a specific version')
-  .action((version) => {
+  .action(async (version: string) => {
     try {
-      vm.uninstall(version);
-    } catch (error) {
+      await vm.uninstall(version);
+    } catch (error: any) {
       console.error(`\n❌ Error: ${error.message}\n`);
       process.exit(1);
     }
@@ -109,22 +142,39 @@ program
       process.exit(1);
     }
 
-    const binPath = require('path').join(
-      require('os').homedir(),
-      '.cvm/bin/claude'
-    );
-
+    const binPath = path.join(os.homedir(), '.cvm/bin/claude');
     console.log(binPath);
+  });
+
+// cvm plugins
+program
+  .command('plugins')
+  .description('List loaded plugins')
+  .action(() => {
+    const plugins = pluginLoader.getPlugins();
+    if (plugins.length === 0) {
+      console.log('No plugins loaded');
+      console.log('\nTo add plugins, create them in ~/.cvm/plugins/');
+      return;
+    }
+
+    console.log('\nLoaded plugins:\n');
+    plugins.forEach((plugin) => {
+      console.log(`  • ${plugin.metadata.name} v${plugin.metadata.version}`);
+      console.log(`    ${plugin.metadata.description}`);
+      if (plugin.metadata.author) {
+        console.log(`    Author: ${plugin.metadata.author}`);
+      }
+      console.log('');
+    });
   });
 
 // cvm claude [...args]
 // Handle this specially before Commander parses args
 if (process.argv[2] === 'claude') {
-  const vm = new VersionManager();
-
   // Extract CVM-specific flags
-  let useVersion = null;
-  const claudeArgs = [];
+  let useVersion: string | null = null;
+  const claudeArgs: string[] = [];
 
   for (let i = 3; i < process.argv.length; i++) {
     const arg = process.argv[i];
@@ -146,35 +196,38 @@ if (process.argv[2] === 'claude') {
   }
 
   if (useVersion && !vm.isInstalled(useVersion)) {
-    console.error(`\n❌ Error: Version ${useVersion} not installed. Run: cvm install ${useVersion}\n`);
+    console.error(
+      `\n❌ Error: Version ${useVersion} not installed. Run: cvm install ${useVersion}\n`
+    );
     process.exit(1);
   }
 
   // Get the claude binary path
-  const claudePath = require('path').join(
-    require('os').homedir(),
+  const claudePath = path.join(
+    os.homedir(),
     '.cvm/versions',
     version,
     'installed/node_modules/.bin/claude'
   );
 
-  if (!require('fs').existsSync(claudePath)) {
-    console.error(`\n❌ Error: Claude binary not found for version ${version}\n`);
+  if (!fs.existsSync(claudePath)) {
+    console.error(
+      `\n❌ Error: Claude binary not found for version ${version}\n`
+    );
     process.exit(1);
   }
 
   // Execute claude
-  const { spawn } = require('child_process');
   const claude = spawn(claudePath, claudeArgs, {
     stdio: 'inherit',
-    env: process.env
+    env: process.env,
   });
 
   claude.on('exit', (code) => {
     process.exit(code || 0);
   });
-
-  return;
+} else {
+  program.parse();
+}
 }
 
-program.parse();

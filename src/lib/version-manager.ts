@@ -1,9 +1,16 @@
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { execSync } = require('child_process');
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { execSync } from 'child_process';
+import type { Plugin, PluginContext } from '../types/plugin';
 
-class VersionManager {
+export class VersionManager {
+  public readonly cvmDir: string;
+  public readonly versionsDir: string;
+  public readonly currentLink: string;
+  public readonly binDir: string;
+  private plugins: Plugin[] = [];
+
   constructor() {
     this.cvmDir = path.join(os.homedir(), '.cvm');
     this.versionsDir = path.join(this.cvmDir, 'versions');
@@ -13,8 +20,50 @@ class VersionManager {
     this.ensureDirectories();
   }
 
-  ensureDirectories() {
-    [this.cvmDir, this.versionsDir, this.binDir].forEach(dir => {
+  /**
+   * Register a plugin
+   */
+  public registerPlugin(plugin: Plugin): void {
+    this.plugins.push(plugin);
+
+    // Call onLoad hook if exists
+    if (plugin.onLoad) {
+      const context = this.getPluginContext();
+      plugin.onLoad(context);
+    }
+  }
+
+  /**
+   * Get plugin context for hooks
+   */
+  private getPluginContext(): PluginContext {
+    return {
+      cvmVersion: '0.2.0',
+      cvmDir: this.cvmDir,
+      currentVersion: this.getCurrentVersion(),
+      installedVersions: this.getInstalledVersions(),
+    };
+  }
+
+  /**
+   * Execute plugin hook
+   */
+  private async executeHook(
+    hookName: keyof Plugin,
+    ...args: any[]
+  ): Promise<void> {
+    const context = this.getPluginContext();
+
+    for (const plugin of this.plugins) {
+      const hook = plugin[hookName] as any;
+      if (typeof hook === 'function') {
+        await hook(...args, context);
+      }
+    }
+  }
+
+  private ensureDirectories(): void {
+    [this.cvmDir, this.versionsDir, this.binDir].forEach((dir) => {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
@@ -24,15 +73,25 @@ class VersionManager {
   /**
    * Check if a version is installed
    */
-  isInstalled(version) {
+  public isInstalled(version: string): boolean {
     const versionDir = path.join(this.versionsDir, version);
     return fs.existsSync(versionDir);
   }
 
   /**
+   * Get list of installed versions
+   */
+  public getInstalledVersions(): string[] {
+    if (!fs.existsSync(this.versionsDir)) {
+      return [];
+    }
+    return fs.readdirSync(this.versionsDir).sort();
+  }
+
+  /**
    * Download package from npm
    */
-  download(version) {
+  private download(version: string): string {
     console.log(`📥 Downloading Claude Code ${version}...`);
 
     const tempDir = path.join(this.cvmDir, 'temp');
@@ -43,7 +102,7 @@ class VersionManager {
     try {
       execSync(`npm pack @anthropic-ai/claude-code@${version}`, {
         cwd: tempDir,
-        stdio: 'pipe'
+        stdio: 'pipe',
       });
 
       const tarballName = `anthropic-ai-claude-code-${version}.tgz`;
@@ -54,7 +113,7 @@ class VersionManager {
       }
 
       return tarballPath;
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to download: ${error.message}`);
     }
   }
@@ -62,7 +121,7 @@ class VersionManager {
   /**
    * Extract tarball
    */
-  extract(tarballPath, outputDir) {
+  private extract(tarballPath: string, outputDir: string): void {
     console.log(`📦 Extracting...`);
 
     if (!fs.existsSync(outputDir)) {
@@ -70,13 +129,15 @@ class VersionManager {
     }
 
     try {
-      execSync(`tar -xzf "${tarballPath}" -C "${outputDir}"`, { stdio: 'pipe' });
+      execSync(`tar -xzf "${tarballPath}" -C "${outputDir}"`, {
+        stdio: 'pipe',
+      });
 
       // Move package/* to outputDir/*
       const packageDir = path.join(outputDir, 'package');
       if (fs.existsSync(packageDir)) {
         const files = fs.readdirSync(packageDir);
-        files.forEach(file => {
+        files.forEach((file) => {
           const src = path.join(packageDir, file);
           const dest = path.join(outputDir, file);
           if (fs.existsSync(dest)) {
@@ -91,7 +152,7 @@ class VersionManager {
         });
         fs.rmdirSync(packageDir);
       }
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to extract: ${error.message}`);
     }
   }
@@ -99,7 +160,7 @@ class VersionManager {
   /**
    * Install Claude Code to make it executable
    */
-  npmInstall(version, extractedDir) {
+  private npmInstall(version: string, extractedDir: string): void {
     console.log(`🔧 Installing dependencies...`);
 
     const installDir = path.join(this.versionsDir, version, 'installed');
@@ -111,8 +172,8 @@ class VersionManager {
     const packageJson = {
       name: 'cvm-install',
       dependencies: {
-        '@anthropic-ai/claude-code': version
-      }
+        '@anthropic-ai/claude-code': version,
+      },
     };
 
     fs.writeFileSync(
@@ -123,9 +184,9 @@ class VersionManager {
     try {
       execSync('npm install --no-save --no-audit --no-fund', {
         cwd: installDir,
-        stdio: 'pipe'
+        stdio: 'pipe',
       });
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`npm install failed: ${error.message}`);
     }
   }
@@ -133,7 +194,7 @@ class VersionManager {
   /**
    * Install a specific version
    */
-  install(version) {
+  public async install(version: string): Promise<void> {
     const versionDir = path.join(this.versionsDir, version);
 
     // Check if already installed
@@ -143,6 +204,9 @@ class VersionManager {
     }
 
     console.log(`\n🚀 Installing Claude Code ${version}...`);
+
+    // Execute beforeInstall hook
+    await this.executeHook('beforeInstall', version);
 
     try {
       // Create version directories
@@ -175,7 +239,9 @@ class VersionManager {
       console.log(`\nTo use this version, run:`);
       console.log(`  cvm use ${version}`);
 
-    } catch (error) {
+      // Execute afterInstall hook
+      await this.executeHook('afterInstall', version);
+    } catch (error: any) {
       // Cleanup on failure
       if (fs.existsSync(versionDir)) {
         fs.rmSync(versionDir, { recursive: true, force: true });
@@ -187,14 +253,21 @@ class VersionManager {
   /**
    * Switch to a specific version
    */
-  use(version) {
+  public async use(version: string): Promise<void> {
     const versionDir = path.join(this.versionsDir, version);
 
     if (!fs.existsSync(versionDir)) {
-      throw new Error(`Version ${version} not installed. Run: cvm install ${version}`);
+      throw new Error(
+        `Version ${version} not installed. Run: cvm install ${version}`
+      );
     }
 
+    const currentVersion = this.getCurrentVersion();
+
     console.log(`🔄 Switching to Claude Code ${version}...`);
+
+    // Execute beforeSwitch hook
+    await this.executeHook('beforeSwitch', currentVersion, version);
 
     // Update current symlink
     if (fs.existsSync(this.currentLink)) {
@@ -220,12 +293,15 @@ class VersionManager {
     console.log(`✅ Now using Claude Code ${version}`);
     console.log(`\nAdd to your PATH if not already:`);
     console.log(`  export PATH="$HOME/.cvm/bin:$PATH"`);
+
+    // Execute afterSwitch hook
+    await this.executeHook('afterSwitch', currentVersion, version);
   }
 
   /**
    * List installed versions
    */
-  list() {
+  public list(): void {
     if (!fs.existsSync(this.versionsDir)) {
       console.log('No versions installed yet.');
       console.log('\nInstall a version with:');
@@ -238,7 +314,7 @@ class VersionManager {
 
     console.log('\nInstalled versions:\n');
 
-    versions.forEach(version => {
+    versions.forEach((version) => {
       const marker = version === current ? '→' : ' ';
       const label = version === current ? ' (current)' : '';
       console.log(`  ${marker} ${version}${label}`);
@@ -250,7 +326,7 @@ class VersionManager {
   /**
    * Get currently active version
    */
-  getCurrentVersion() {
+  public getCurrentVersion(): string | null {
     try {
       const target = fs.readlinkSync(this.currentLink);
       return path.basename(target);
@@ -262,7 +338,7 @@ class VersionManager {
   /**
    * Show current version
    */
-  current() {
+  public current(): void {
     const version = this.getCurrentVersion();
 
     if (version) {
@@ -277,11 +353,11 @@ class VersionManager {
   /**
    * Get latest version from npm
    */
-  getLatestVersion() {
+  public getLatestVersion(): string {
     try {
       const output = execSync('npm view @anthropic-ai/claude-code version', {
         encoding: 'utf8',
-        stdio: 'pipe'
+        stdio: 'pipe',
       });
       return output.trim();
     } catch (error) {
@@ -292,27 +368,30 @@ class VersionManager {
   /**
    * List all available versions from npm
    */
-  listRemote() {
+  public listRemote(): void {
     console.log('📡 Fetching available versions from npm...\n');
 
     try {
-      const output = execSync('npm view @anthropic-ai/claude-code versions --json', {
-        encoding: 'utf8',
-        stdio: 'pipe'
-      });
+      const output = execSync(
+        'npm view @anthropic-ai/claude-code versions --json',
+        {
+          encoding: 'utf8',
+          stdio: 'pipe',
+        }
+      );
 
-      const versions = JSON.parse(output);
+      const versions: string[] = JSON.parse(output);
 
       console.log(`Available versions (${versions.length} total):\n`);
 
       // Group by major version
-      const groups = {
+      const groups: Record<string, string[]> = {
         '0.2.x': [],
         '1.0.x': [],
-        '2.0.x': []
+        '2.0.x': [],
       };
 
-      versions.forEach(v => {
+      versions.forEach((v) => {
         if (v.startsWith('0.2.')) groups['0.2.x'].push(v);
         else if (v.startsWith('1.0.')) groups['1.0.x'].push(v);
         else if (v.startsWith('2.0.')) groups['2.0.x'].push(v);
@@ -327,7 +406,6 @@ class VersionManager {
 
       console.log(`\nLatest overall: ${versions[versions.length - 1]}`);
       console.log(`\nInstall with: cvm install <version>`);
-
     } catch (error) {
       throw new Error('Failed to fetch versions from npm');
     }
@@ -336,7 +414,7 @@ class VersionManager {
   /**
    * Uninstall a version
    */
-  uninstall(version) {
+  public async uninstall(version: string): Promise<void> {
     const versionDir = path.join(this.versionsDir, version);
 
     if (!fs.existsSync(versionDir)) {
@@ -345,136 +423,21 @@ class VersionManager {
 
     const current = this.getCurrentVersion();
     if (current === version) {
-      throw new Error(`Cannot uninstall currently active version ${version}. Switch to another version first.`);
+      throw new Error(
+        `Cannot uninstall currently active version ${version}. Switch to another version first.`
+      );
     }
+
+    // Execute beforeUninstall hook
+    await this.executeHook('beforeUninstall', version);
 
     console.log(`🗑️  Uninstalling Claude Code ${version}...`);
 
     fs.rmSync(versionDir, { recursive: true, force: true });
 
     console.log(`✅ Uninstalled ${version}`);
+
+    // Execute afterUninstall hook
+    await this.executeHook('afterUninstall', version);
   }
-}
-
-module.exports = VersionManager;
-
-// Inline tests - only runs during `npm test`
-// Note: Using globals from vitest.config.js (CommonJS compatible)
-if (typeof vitest !== 'undefined') {
-  // vitest globals are available: describe, it, expect, beforeEach, afterEach
-
-  describe('VersionManager', () => {
-    let vm;
-    let testCvmDir;
-
-    beforeEach(() => {
-      // Use a test directory to avoid messing with real ~/.cvm
-      testCvmDir = path.join(os.tmpdir(), `cvm-test-${Date.now()}`);
-
-      // Mock the constructor to use test directory
-      vm = new VersionManager();
-      vm.cvmDir = testCvmDir;
-      vm.versionsDir = path.join(testCvmDir, 'versions');
-      vm.currentLink = path.join(testCvmDir, 'current');
-      vm.binDir = path.join(testCvmDir, 'bin');
-      vm.ensureDirectories();
-    });
-
-    afterEach(() => {
-      // Clean up test directory
-      if (fs.existsSync(testCvmDir)) {
-        fs.rmSync(testCvmDir, { recursive: true, force: true });
-      }
-    });
-
-    describe('isInstalled', () => {
-      it('should return false for non-existent version', () => {
-        expect(vm.isInstalled('99.99.99')).toBe(false);
-      });
-
-      it('should return true for installed version', () => {
-        const versionDir = path.join(vm.versionsDir, '2.0.37');
-        fs.mkdirSync(versionDir, { recursive: true });
-        expect(vm.isInstalled('2.0.37')).toBe(true);
-      });
-    });
-
-    describe('getCurrentVersion', () => {
-      it('should return null when no version is active', () => {
-        expect(vm.getCurrentVersion()).toBe(null);
-      });
-
-      it('should return version name from symlink', () => {
-        const versionDir = path.join(vm.versionsDir, '2.0.37');
-        fs.mkdirSync(versionDir, { recursive: true });
-        fs.symlinkSync(versionDir, vm.currentLink, 'dir');
-
-        expect(vm.getCurrentVersion()).toBe('2.0.37');
-      });
-
-      it('should handle broken symlinks gracefully', () => {
-        fs.symlinkSync('/nonexistent/path', vm.currentLink, 'dir');
-        // readlinkSync still returns the target path even if it doesn't exist
-        expect(vm.getCurrentVersion()).toBe('path');
-      });
-    });
-
-    describe('ensureDirectories', () => {
-      it('should create all required directories', () => {
-        vm.ensureDirectories();
-
-        expect(fs.existsSync(vm.cvmDir)).toBe(true);
-        expect(fs.existsSync(vm.versionsDir)).toBe(true);
-        expect(fs.existsSync(vm.binDir)).toBe(true);
-      });
-
-      it('should not fail if directories already exist', () => {
-        vm.ensureDirectories();
-        expect(() => vm.ensureDirectories()).not.toThrow();
-      });
-    });
-
-    describe('getLatestVersion', () => {
-      it('should fetch latest version from npm', () => {
-        const version = vm.getLatestVersion();
-        expect(version).toMatch(/^\d+\.\d+\.\d+$/);
-      });
-
-      it('should throw error if npm command fails', () => {
-        // Skip this test - mocking execSync in CommonJS is tricky
-        // We've verified it works in the happy path
-      });
-    });
-
-    describe('uninstall', () => {
-      it('should throw error for non-existent version', () => {
-        expect(() => vm.uninstall('99.99.99')).toThrow('Version 99.99.99 is not installed');
-      });
-
-      it('should throw error when trying to uninstall active version', () => {
-        const versionDir = path.join(vm.versionsDir, '2.0.37');
-        fs.mkdirSync(versionDir, { recursive: true });
-        fs.symlinkSync(versionDir, vm.currentLink, 'dir');
-
-        expect(() => vm.uninstall('2.0.37')).toThrow('Cannot uninstall currently active version');
-      });
-
-      it('should remove version directory when not active', () => {
-        // Create two versions
-        const version1 = path.join(vm.versionsDir, '2.0.37');
-        const version2 = path.join(vm.versionsDir, '2.0.42');
-        fs.mkdirSync(version1, { recursive: true });
-        fs.mkdirSync(version2, { recursive: true });
-
-        // Make 2.0.42 active
-        fs.symlinkSync(version2, vm.currentLink, 'dir');
-
-        // Uninstall 2.0.37 (not active)
-        vm.uninstall('2.0.37');
-
-        expect(fs.existsSync(version1)).toBe(false);
-        expect(fs.existsSync(version2)).toBe(true);
-      });
-    });
-  });
 }

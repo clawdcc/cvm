@@ -8,6 +8,9 @@
 - ✅ Switch between versions instantly
 - ✅ Simple commands (inspired by nvm)
 - ✅ 249 versions available (0.2.x → 2.0.x)
+- ✅ **Plugin system** with lifecycle hooks
+- ✅ **TypeScript** with full type safety
+- ✅ Built-in analyzer plugin
 - 🍎 **macOS only** (requires symlinks)
 
 ## Requirements
@@ -25,6 +28,7 @@
 git clone <repo-url> cvm
 cd cvm
 npm install
+npm run build  # Build TypeScript
 npm link
 
 # Add to PATH (add to ~/.bashrc or ~/.zshrc)
@@ -74,6 +78,7 @@ cvm list-remote
 | `cvm current` | Show active version |
 | `cvm uninstall <version>` | Remove a version |
 | `cvm which` | Show path to claude binary |
+| `cvm plugins` | List loaded plugins |
 
 ## Storage
 
@@ -88,6 +93,11 @@ All versions are stored in `~/.cvm/`:
 │   │   └── installed/        # npm installed
 │   └── 2.0.42/
 │       └── ...
+├── plugins/                   # Custom plugins
+│   └── analyzer.js           # Built-in analyzer plugin
+├── analysis/                  # Version analysis data
+│   ├── 2.0.37.json
+│   └── 2.0.42.json
 ├── current -> versions/2.0.42  # Active version symlink
 └── bin/
     └── claude -> ../current/installed/node_modules/.bin/claude
@@ -145,23 +155,68 @@ cvm uninstall 1.0.0
 - **1.0.x:** 134 versions
 - **2.0.x:** 24 versions (current)
 
+## Plugin System
+
+CVM includes a powerful plugin system with lifecycle hooks:
+
+### Installing the Analyzer Plugin
+
+```bash
+# Copy the built-in analyzer plugin
+cp dist/plugins/analyzer.js ~/.cvm/plugins/
+
+# Verify it's loaded
+cvm plugins
+```
+
+### Plugin Lifecycle Hooks
+
+Plugins can hook into:
+- `beforeInstall` / `afterInstall` - Version installation
+- `beforeSwitch` / `afterSwitch` - Version switching
+- `beforeUninstall` / `afterUninstall` - Version removal
+
+### Analyzer Plugin Features
+
+The built-in analyzer automatically analyzes each installed version:
+- File counts (JS, TS, JSON)
+- CLI command extraction
+- Package information
+- Content hashing
+
+View analysis:
+```bash
+cat ~/.cvm/analysis/2.0.42.json
+```
+
 ## Development
 
 ```bash
-# Run locally
-node bin/cvm.js install latest
+# Build TypeScript
+npm run build
 
-# Test
-cvm list
-cvm current
+# Watch mode
+npm run dev
+
+# Type checking
+npm run typecheck
+
+# Run tests
+npm test
+
+# Run locally
+node dist/cvm.js install latest
 ```
 
 ## Roadmap
 
-- [ ] Plugin system for analysis
+- [x] TypeScript migration
+- [x] Plugin system for analysis
+- [x] Analyzer plugin
 - [ ] Auto-update detection
 - [ ] Diff between versions
 - [ ] Breaking change detection
+- [ ] Plugin marketplace
 
 ## License
 
