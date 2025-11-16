@@ -36,7 +36,7 @@ export class VersionManager {
   /**
    * Get plugin context for hooks
    */
-  private getPluginContext(): PluginContext {
+  public getPluginContext(): PluginContext {
     return {
       cvmVersion: '0.2.0',
       cvmDir: this.cvmDir,

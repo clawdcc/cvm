@@ -94,10 +94,8 @@ All versions are stored in `~/.cvm/`:
 │   └── 2.0.42/
 │       └── ...
 ├── plugins/                   # Custom plugins
-│   └── analyzer.js           # Built-in analyzer plugin
-├── analysis/                  # Version analysis data
-│   ├── 2.0.37.json
-│   └── 2.0.42.json
+│   └── benchmark.js          # Example: startup benchmark plugin
+├── benchmarks.json            # Performance benchmarks
 ├── current -> versions/2.0.42  # Active version symlink
 └── bin/
     └── claude -> ../current/installed/node_modules/.bin/claude
@@ -159,14 +157,30 @@ cvm uninstall 1.0.0
 
 CVM includes a powerful plugin system with lifecycle hooks:
 
-### Installing the Analyzer Plugin
+### Example: Benchmark Plugin
+
+The included benchmark plugin measures Claude Code startup performance across versions:
 
 ```bash
-# Copy the built-in analyzer plugin
-cp dist/plugins/analyzer.js ~/.cvm/plugins/
+# Install the benchmark plugin
+cp dist/plugins/benchmark.js ~/.cvm/plugins/
 
-# Verify it's loaded
-cvm plugins
+# Benchmark a version
+cvm benchmark 2.0.42
+
+# Compare two versions
+cvm benchmark compare 2.0.37 2.0.42
+
+# View history
+cvm benchmark history
+```
+
+**Output:**
+```
+⏱️  Benchmarking Claude Code 2.0.42...
+   Cold start: 245ms
+   Warm start: 123ms (avg of 3 runs)
+✅ Benchmark complete!
 ```
 
 ### Plugin Lifecycle Hooks
@@ -175,19 +189,7 @@ Plugins can hook into:
 - `beforeInstall` / `afterInstall` - Version installation
 - `beforeSwitch` / `afterSwitch` - Version switching
 - `beforeUninstall` / `afterUninstall` - Version removal
-
-### Analyzer Plugin Features
-
-The built-in analyzer automatically analyzes each installed version:
-- File counts (JS, TS, JSON)
-- CLI command extraction
-- Package information
-- Content hashing
-
-View analysis:
-```bash
-cat ~/.cvm/analysis/2.0.42.json
-```
+- `commands` - Add custom CLI commands (like `cvm benchmark`)
 
 ## Development
 

@@ -25,6 +25,27 @@ async function loadPlugins(
   }
 }
 
+function registerPluginCommands(pluginLoader: PluginLoader, vm: VersionManager) {
+  const plugins = pluginLoader.getPlugins();
+
+  plugins.forEach((plugin) => {
+    if (plugin.commands) {
+      plugin.commands.forEach((cmd) => {
+        program
+          .command(`${cmd.name} [args...]`)
+          .description(cmd.description)
+          .allowUnknownOption(true)
+          .action(async (args: string[] | undefined, _options: any) => {
+            // args is the variadic [args...] from the command
+            const cmdArgs = args || [];
+            const context = vm.getPluginContext();
+            await cmd.handler(cmdArgs, context);
+          });
+      });
+    }
+  });
+}
+
 const vm = new VersionManager();
 const pluginLoader = new PluginLoader();
 
@@ -168,6 +189,9 @@ program
       console.log('');
     });
   });
+
+// Register plugin commands
+registerPluginCommands(pluginLoader, vm);
 
 // cvm claude [...args]
 // Handle this specially before Commander parses args

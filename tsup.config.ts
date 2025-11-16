@@ -5,7 +5,7 @@ export default defineConfig({
     cvm: 'src/bin/cvm.ts',
     'version-manager': 'src/lib/version-manager.ts',
     'plugin-loader': 'src/lib/plugin-loader.ts',
-    'plugins/analyzer': 'src/plugins/analyzer.ts',
+    'plugins/benchmark': 'src/plugins/benchmark.ts',
   },
   format: ['cjs'],
   dts: true,
@@ -15,4 +15,6 @@ export default defineConfig({
   outDir: 'dist',
   target: 'node14',
   shims: true,
+  // Bundle asciichart into the plugin so it works standalone
+  noExternal: ['asciichart'],
 });
