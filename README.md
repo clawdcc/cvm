@@ -153,6 +153,40 @@ cvm uninstall 1.0.0
 - **1.0.x:** 134 versions
 - **2.0.x:** 24 versions (current)
 
+## Performance Benchmarks
+
+CVM includes comprehensive performance benchmarks across all 249 Claude Code versions:
+
+### Key Findings
+
+**Note:** Benchmarks measure `claude --version` startup time, which may not fully represent interactive session performance but provides consistent comparison data.
+
+- **Fastest version:** 0.2.36 (~289ms average)
+- **Slowest version:** 0.2.31 (~1936ms average)
+- **Modern versions (2.0.x):** ~300-400ms average
+- **Improvement:** 85% faster from slowest to fastest
+
+### Version Compatibility
+
+⚠️ **Important:** All versions before 1.0.24 cannot actually run - they display "needs update to 1.0.24 or higher" error and hang. The entire 0.2.x family shows this behavior. Benchmark times for pre-1.0.24 versions are timeout measurements, not real startup times.
+
+**Actual usable versions begin at 1.0.24+** (~354ms average)
+
+### Reports
+
+- **[Full Performance Report](reports/PERFORMANCE_REPORT_3RUN.html)** - Interactive HTML report with charts (download and open in browser)
+- **[Single-run Report](reports/PERFORMANCE_REPORT.html)** - Original benchmark data
+- **Raw Data:** `~/.cvm/benchmarks-all-3run.json`
+
+To generate your own benchmarks:
+```bash
+# Benchmark all installed versions (3 runs each)
+node benchmark-all-3runs.js
+
+# Generate HTML report
+cd reports && node generate-report-3run.js
+```
+
 ## Plugin System
 
 CVM includes a powerful plugin system with lifecycle hooks:

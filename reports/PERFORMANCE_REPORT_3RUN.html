@@ -1,0 +1,2504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVM Performance Analysis (3 Runs)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            color: #888;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 60px;
+        }
+
+        .stat-card {
+            background: #252525;
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid #333;
+        }
+
+        .stat-card.highlight {
+            border: 1px solid #d4956d;
+            background: rgba(212, 149, 109, 0.05);
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .stat-detail {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .section {
+            background: #252525;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 30px;
+            border: 1px solid #333;
+        }
+
+        h2 {
+            font-size: 1.5em;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: #fff;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+            margin-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 12px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.95em;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: #333;
+            color: #fff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 12px;
+            color: #888;
+            font-weight: 500;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #333;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        tr:hover {
+            background: #2a2a2a;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+
+        .badge-fast {
+            background: rgba(76, 175, 80, 0.2);
+            color: #81c784;
+        }
+
+        .badge-slow {
+            background: rgba(244, 67, 54, 0.2);
+            color: #e57373;
+        }
+
+        .badge-medium {
+            background: rgba(255, 152, 0, 0.2);
+            color: #ffb74d;
+        }
+
+        .highlight-text {
+            color: #d4956d;
+            font-weight: 600;
+        }
+
+        .run-times {
+            font-size: 0.85em;
+            color: #888;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            padding-top: 30px;
+            border-top: 1px solid #333;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        code {
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CVM Performance Analysis</h1>
+            <p class="subtitle">Startup benchmarks across 248 Claude Code versions (3 runs each)</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Versions Tested</div>
+                <div class="stat-value">248</div>
+                <div class="stat-detail">744 total runs</div>
+            </div>
+
+            <div class="stat-card highlight">
+                <div class="stat-label">Fastest</div>
+                <div class="stat-value">295ms</div>
+                <div class="stat-detail">0.2.36 ±3ms</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Average</div>
+                <div class="stat-value">517ms</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-label">Slowest</div>
+                <div class="stat-value">1738ms</div>
+                <div class="stat-detail">0.2.9 ±107ms</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Performance by Version Family</h2>
+            <p style="color: #888; font-size: 0.9em; margin-bottom: 20px;">
+                ⚠️ <strong>Note:</strong> All versions before 1.0.24 cannot actually run - they display "needs update to 1.0.24 or higher" error and hang (requiring manual exit).
+                The entire 0.2.x family shows this behavior. Times shown for pre-1.0.24 versions are timeout measurements from the benchmark waiting, not real startup times.
+                <strong>Actual usable versions begin at 1.0.24+</strong> (~354ms average for early 1.0.x).
+            </p>
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('all')">All Versions</button>
+                <button class="tab" onclick="showTab('0.2')">0.2.x</button>
+                <button class="tab" onclick="showTab('1.0')">1.0.x</button>
+                <button class="tab" onclick="showTab('2.0')">2.0.x</button>
+            </div>
+
+            <div id="tab-all" class="tab-content active">
+                <div class="chart-wrapper">
+                    <canvas id="chartAll"></canvas>
+                </div>
+            </div>
+
+            <div id="tab-0.2" class="tab-content">
+                <div class="chart-wrapper">
+                    <canvas id="chart02"></canvas>
+                </div>
+                <p style="color: #888; font-size: 0.9em; margin-top: 16px;">
+                    Notable: <span class="highlight-text">6.5x performance improvement</span> between versions 0.2.35 (1713ms) and 0.2.36 (295ms)
+                </p>
+            </div>
+
+            <div id="tab-1.0" class="tab-content">
+                <div class="chart-wrapper">
+                    <canvas id="chart10"></canvas>
+                </div>
+            </div>
+
+            <div id="tab-2.0" class="tab-content">
+                <div class="chart-wrapper">
+                    <canvas id="chart20"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>All Versions</h2>
+            <div style="margin-bottom: 16px; color: #888; font-size: 0.9em;">
+                Click column headers to sort • Individual run times shown with average ±stddev
+            </div>
+            <table id="versionsTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)" style="cursor: pointer;">Version ▼</th>
+                        <th onclick="sortTable(1)" style="cursor: pointer;">Avg Time ▼</th>
+                        <th onclick="sortTable(2)" style="cursor: pointer;">Individual Runs ▼</th>
+                        <th onclick="sortTable(3)" style="cursor: pointer;">StdDev ▼</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                        <tr>
+                            <td><strong>2.0.42</strong></td>
+                            <td>569ms</td>
+                            <td class="run-times">567ms, 558ms, 582ms</td>
+                            <td>±10ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.41</strong></td>
+                            <td>561ms</td>
+                            <td class="run-times">558ms, 564ms, 561ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.37</strong></td>
+                            <td>667ms</td>
+                            <td class="run-times">668ms, 676ms, 658ms</td>
+                            <td>±7ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.36</strong></td>
+                            <td>666ms</td>
+                            <td class="run-times">673ms, 664ms, 662ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.35</strong></td>
+                            <td>671ms</td>
+                            <td class="run-times">668ms, 669ms, 676ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.34</strong></td>
+                            <td>657ms</td>
+                            <td class="run-times">659ms, 653ms, 660ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.33</strong></td>
+                            <td>659ms</td>
+                            <td class="run-times">655ms, 661ms, 660ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.32</strong></td>
+                            <td>656ms</td>
+                            <td class="run-times">656ms, 658ms, 654ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.31</strong></td>
+                            <td>652ms</td>
+                            <td class="run-times">657ms, 651ms, 648ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.30</strong></td>
+                            <td>662ms</td>
+                            <td class="run-times">681ms, 656ms, 649ms</td>
+                            <td>±14ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.29</strong></td>
+                            <td>653ms</td>
+                            <td class="run-times">655ms, 654ms, 651ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.28</strong></td>
+                            <td>650ms</td>
+                            <td class="run-times">648ms, 661ms, 642ms</td>
+                            <td>±8ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.27</strong></td>
+                            <td>650ms</td>
+                            <td class="run-times">648ms, 649ms, 653ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.26</strong></td>
+                            <td>806ms</td>
+                            <td class="run-times">726ms, 1024ms, 667ms</td>
+                            <td>±156ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.25</strong></td>
+                            <td>660ms</td>
+                            <td class="run-times">662ms, 658ms, 661ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.24</strong></td>
+                            <td>656ms</td>
+                            <td class="run-times">659ms, 655ms, 655ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.23</strong></td>
+                            <td>650ms</td>
+                            <td class="run-times">659ms, 647ms, 644ms</td>
+                            <td>±6ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.22</strong></td>
+                            <td>652ms</td>
+                            <td class="run-times">654ms, 654ms, 648ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.21</strong></td>
+                            <td>659ms</td>
+                            <td class="run-times">675ms, 659ms, 642ms</td>
+                            <td>±13ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.20</strong></td>
+                            <td>664ms</td>
+                            <td class="run-times">670ms, 645ms, 676ms</td>
+                            <td>±13ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.19</strong></td>
+                            <td>655ms</td>
+                            <td class="run-times">652ms, 640ms, 672ms</td>
+                            <td>±13ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.18</strong></td>
+                            <td>642ms</td>
+                            <td class="run-times">643ms, 640ms, 643ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.17</strong></td>
+                            <td>638ms</td>
+                            <td class="run-times">641ms, 637ms, 637ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.15</strong></td>
+                            <td>671ms</td>
+                            <td class="run-times">678ms, 673ms, 662ms</td>
+                            <td>±7ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.14</strong></td>
+                            <td>659ms</td>
+                            <td class="run-times">654ms, 656ms, 668ms</td>
+                            <td>±6ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.13</strong></td>
+                            <td>646ms</td>
+                            <td class="run-times">647ms, 640ms, 651ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.12</strong></td>
+                            <td>645ms</td>
+                            <td class="run-times">645ms, 644ms, 645ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.11</strong></td>
+                            <td>631ms</td>
+                            <td class="run-times">642ms, 627ms, 624ms</td>
+                            <td>±8ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.10</strong></td>
+                            <td>641ms</td>
+                            <td class="run-times">661ms, 639ms, 622ms</td>
+                            <td>±16ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.9</strong></td>
+                            <td>630ms</td>
+                            <td class="run-times">636ms, 625ms, 628ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.8</strong></td>
+                            <td>626ms</td>
+                            <td class="run-times">631ms, 627ms, 619ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.5</strong></td>
+                            <td>642ms</td>
+                            <td class="run-times">635ms, 647ms, 644ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.3</strong></td>
+                            <td>637ms</td>
+                            <td class="run-times">647ms, 633ms, 632ms</td>
+                            <td>±7ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.2</strong></td>
+                            <td>668ms</td>
+                            <td class="run-times">641ms, 711ms, 653ms</td>
+                            <td>±31ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.1</strong></td>
+                            <td>638ms</td>
+                            <td class="run-times">644ms, 629ms, 641ms</td>
+                            <td>±6ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>2.0.0</strong></td>
+                            <td>635ms</td>
+                            <td class="run-times">641ms, 632ms, 633ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.128</strong></td>
+                            <td>712ms</td>
+                            <td class="run-times">643ms, 630ms, 863ms</td>
+                            <td>±107ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.127</strong></td>
+                            <td>644ms</td>
+                            <td class="run-times">647ms, 642ms, 642ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.126</strong></td>
+                            <td>631ms</td>
+                            <td class="run-times">627ms, 634ms, 633ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.125</strong></td>
+                            <td>629ms</td>
+                            <td class="run-times">630ms, 630ms, 627ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.124</strong></td>
+                            <td>530ms</td>
+                            <td class="run-times">533ms, 529ms, 528ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.123</strong></td>
+                            <td>561ms</td>
+                            <td class="run-times">511ms, 505ms, 667ms</td>
+                            <td>±75ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.122</strong></td>
+                            <td>512ms</td>
+                            <td class="run-times">516ms, 513ms, 507ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.120</strong></td>
+                            <td>513ms</td>
+                            <td class="run-times">515ms, 517ms, 507ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.119</strong></td>
+                            <td>607ms</td>
+                            <td class="run-times">512ms, 511ms, 798ms</td>
+                            <td>±135ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.118</strong></td>
+                            <td>505ms</td>
+                            <td class="run-times">508ms, 503ms, 504ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.117</strong></td>
+                            <td>505ms</td>
+                            <td class="run-times">510ms, 506ms, 499ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.116</strong></td>
+                            <td>502ms</td>
+                            <td class="run-times">510ms, 497ms, 499ms</td>
+                            <td>±6ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.115</strong></td>
+                            <td>504ms</td>
+                            <td class="run-times">501ms, 506ms, 504ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.114</strong></td>
+                            <td>506ms</td>
+                            <td class="run-times">503ms, 506ms, 509ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.113</strong></td>
+                            <td>560ms</td>
+                            <td class="run-times">514ms, 504ms, 663ms</td>
+                            <td>±73ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.112</strong></td>
+                            <td>512ms</td>
+                            <td class="run-times">516ms, 513ms, 507ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.111</strong></td>
+                            <td>514ms</td>
+                            <td class="run-times">511ms, 516ms, 516ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.110</strong></td>
+                            <td>520ms</td>
+                            <td class="run-times">501ms, 545ms, 513ms</td>
+                            <td>±19ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.109</strong></td>
+                            <td>504ms</td>
+                            <td class="run-times">508ms, 500ms, 505ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.108</strong></td>
+                            <td>510ms</td>
+                            <td class="run-times">518ms, 513ms, 500ms</td>
+                            <td>±8ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.107</strong></td>
+                            <td>509ms</td>
+                            <td class="run-times">511ms, 511ms, 506ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.106</strong></td>
+                            <td>512ms</td>
+                            <td class="run-times">516ms, 511ms, 509ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.105</strong></td>
+                            <td>509ms</td>
+                            <td class="run-times">506ms, 512ms, 510ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.103</strong></td>
+                            <td>501ms</td>
+                            <td class="run-times">506ms, 502ms, 496ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.102</strong></td>
+                            <td>508ms</td>
+                            <td class="run-times">504ms, 512ms, 509ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.100</strong></td>
+                            <td>508ms</td>
+                            <td class="run-times">509ms, 505ms, 510ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.98</strong></td>
+                            <td>531ms</td>
+                            <td class="run-times">571ms, 518ms, 503ms</td>
+                            <td>±29ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.96</strong></td>
+                            <td>686ms</td>
+                            <td class="run-times">502ms, 615ms, 941ms</td>
+                            <td>±186ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.95</strong></td>
+                            <td>512ms</td>
+                            <td class="run-times">505ms, 515ms, 516ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.94</strong></td>
+                            <td>511ms</td>
+                            <td class="run-times">508ms, 511ms, 515ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.93</strong></td>
+                            <td>543ms</td>
+                            <td class="run-times">586ms, 527ms, 515ms</td>
+                            <td>±31ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.92</strong></td>
+                            <td>502ms</td>
+                            <td class="run-times">500ms, 499ms, 506ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.91</strong></td>
+                            <td>497ms</td>
+                            <td class="run-times">500ms, 494ms, 497ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.90</strong></td>
+                            <td>501ms</td>
+                            <td class="run-times">506ms, 498ms, 498ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.89</strong></td>
+                            <td>501ms</td>
+                            <td class="run-times">506ms, 495ms, 502ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.88</strong></td>
+                            <td>507ms</td>
+                            <td class="run-times">519ms, 502ms, 501ms</td>
+                            <td>±8ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.87</strong></td>
+                            <td>511ms</td>
+                            <td class="run-times">498ms, 513ms, 523ms</td>
+                            <td>±10ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.86</strong></td>
+                            <td>498ms</td>
+                            <td class="run-times">498ms, 499ms, 498ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.85</strong></td>
+                            <td>515ms</td>
+                            <td class="run-times">520ms, 521ms, 504ms</td>
+                            <td>±8ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.84</strong></td>
+                            <td>521ms</td>
+                            <td class="run-times">524ms, 519ms, 521ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.83</strong></td>
+                            <td>503ms</td>
+                            <td class="run-times">503ms, 504ms, 502ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.82</strong></td>
+                            <td>502ms</td>
+                            <td class="run-times">506ms, 497ms, 503ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.81</strong></td>
+                            <td>500ms</td>
+                            <td class="run-times">498ms, 507ms, 494ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.80</strong></td>
+                            <td>506ms</td>
+                            <td class="run-times">513ms, 502ms, 504ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.79</strong></td>
+                            <td>507ms</td>
+                            <td class="run-times">513ms, 503ms, 505ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.78</strong></td>
+                            <td>509ms</td>
+                            <td class="run-times">505ms, 506ms, 516ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.77</strong></td>
+                            <td>508ms</td>
+                            <td class="run-times">512ms, 507ms, 505ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.76</strong></td>
+                            <td>520ms</td>
+                            <td class="run-times">516ms, 523ms, 521ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.74</strong></td>
+                            <td>511ms</td>
+                            <td class="run-times">507ms, 506ms, 521ms</td>
+                            <td>±7ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.73</strong></td>
+                            <td>502ms</td>
+                            <td class="run-times">498ms, 499ms, 509ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.72</strong></td>
+                            <td>499ms</td>
+                            <td class="run-times">498ms, 497ms, 502ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.71</strong></td>
+                            <td>499ms</td>
+                            <td class="run-times">499ms, 494ms, 504ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.70</strong></td>
+                            <td>498ms</td>
+                            <td class="run-times">500ms, 497ms, 496ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.69</strong></td>
+                            <td>509ms</td>
+                            <td class="run-times">515ms, 506ms, 506ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.68</strong></td>
+                            <td>513ms</td>
+                            <td class="run-times">520ms, 514ms, 506ms</td>
+                            <td>±6ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.67</strong></td>
+                            <td>506ms</td>
+                            <td class="run-times">509ms, 505ms, 504ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.66</strong></td>
+                            <td>535ms</td>
+                            <td class="run-times">524ms, 567ms, 513ms</td>
+                            <td>±23ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.65</strong></td>
+                            <td>511ms</td>
+                            <td class="run-times">509ms, 510ms, 513ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.64</strong></td>
+                            <td>521ms</td>
+                            <td class="run-times">527ms, 527ms, 510ms</td>
+                            <td>±8ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.63</strong></td>
+                            <td>514ms</td>
+                            <td class="run-times">518ms, 505ms, 520ms</td>
+                            <td>±7ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.62</strong></td>
+                            <td>519ms</td>
+                            <td class="run-times">516ms, 524ms, 518ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.61</strong></td>
+                            <td>512ms</td>
+                            <td class="run-times">513ms, 508ms, 516ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.60</strong></td>
+                            <td>507ms</td>
+                            <td class="run-times">506ms, 503ms, 511ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.59</strong></td>
+                            <td>511ms</td>
+                            <td class="run-times">510ms, 511ms, 511ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.58</strong></td>
+                            <td>514ms</td>
+                            <td class="run-times">504ms, 505ms, 533ms</td>
+                            <td>±13ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.57</strong></td>
+                            <td>502ms</td>
+                            <td class="run-times">506ms, 498ms, 503ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.56</strong></td>
+                            <td>506ms</td>
+                            <td class="run-times">515ms, 499ms, 504ms</td>
+                            <td>±7ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.55</strong></td>
+                            <td>498ms</td>
+                            <td class="run-times">490ms, 518ms, 487ms</td>
+                            <td>±14ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.54</strong></td>
+                            <td>490ms</td>
+                            <td class="run-times">484ms, 489ms, 497ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.53</strong></td>
+                            <td>484ms</td>
+                            <td class="run-times">485ms, 479ms, 487ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.52</strong></td>
+                            <td>468ms</td>
+                            <td class="run-times">473ms, 467ms, 463ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.51</strong></td>
+                            <td>519ms</td>
+                            <td class="run-times">474ms, 477ms, 606ms</td>
+                            <td>±62ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.50</strong></td>
+                            <td>473ms</td>
+                            <td class="run-times">469ms, 473ms, 478ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.49</strong></td>
+                            <td>469ms</td>
+                            <td class="run-times">467ms, 471ms, 468ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.48</strong></td>
+                            <td>544ms</td>
+                            <td class="run-times">473ms, 692ms, 466ms</td>
+                            <td>±105ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.47</strong></td>
+                            <td>469ms</td>
+                            <td class="run-times">479ms, 463ms, 466ms</td>
+                            <td>±7ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.46</strong></td>
+                            <td>468ms</td>
+                            <td class="run-times">471ms, 469ms, 463ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.45</strong></td>
+                            <td>497ms</td>
+                            <td class="run-times">549ms, 470ms, 472ms</td>
+                            <td>±37ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.44</strong></td>
+                            <td>472ms</td>
+                            <td class="run-times">478ms, 471ms, 468ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.43</strong></td>
+                            <td>462ms</td>
+                            <td class="run-times">465ms, 462ms, 460ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.42</strong></td>
+                            <td>468ms</td>
+                            <td class="run-times">466ms, 474ms, 464ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.41</strong></td>
+                            <td>471ms</td>
+                            <td class="run-times">474ms, 471ms, 468ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.40</strong></td>
+                            <td>492ms</td>
+                            <td class="run-times">470ms, 456ms, 551ms</td>
+                            <td>±42ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.39</strong></td>
+                            <td>467ms</td>
+                            <td class="run-times">474ms, 469ms, 458ms</td>
+                            <td>±7ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.38</strong></td>
+                            <td>467ms</td>
+                            <td class="run-times">482ms, 464ms, 454ms</td>
+                            <td>±12ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.37</strong></td>
+                            <td>482ms</td>
+                            <td class="run-times">517ms, 457ms, 471ms</td>
+                            <td>±26ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.36</strong></td>
+                            <td>484ms</td>
+                            <td class="run-times">470ms, 466ms, 515ms</td>
+                            <td>±22ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.35</strong></td>
+                            <td>412ms</td>
+                            <td class="run-times">416ms, 410ms, 411ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.34</strong></td>
+                            <td>404ms</td>
+                            <td class="run-times">403ms, 406ms, 402ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.33</strong></td>
+                            <td>409ms</td>
+                            <td class="run-times">414ms, 406ms, 407ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.32</strong></td>
+                            <td>474ms</td>
+                            <td class="run-times">403ms, 489ms, 530ms</td>
+                            <td>±53ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.31</strong></td>
+                            <td>403ms</td>
+                            <td class="run-times">403ms, 405ms, 401ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.30</strong></td>
+                            <td>409ms</td>
+                            <td class="run-times">416ms, 404ms, 408ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.29</strong></td>
+                            <td>411ms</td>
+                            <td class="run-times">413ms, 410ms, 409ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.28</strong></td>
+                            <td>427ms</td>
+                            <td class="run-times">402ms, 472ms, 407ms</td>
+                            <td>±32ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.27</strong></td>
+                            <td>399ms</td>
+                            <td class="run-times">404ms, 400ms, 394ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.26</strong></td>
+                            <td>400ms</td>
+                            <td class="run-times">401ms, 401ms, 398ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.25</strong></td>
+                            <td>411ms</td>
+                            <td class="run-times">413ms, 417ms, 402ms</td>
+                            <td>±6ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.24</strong></td>
+                            <td>527ms</td>
+                            <td class="run-times">556ms, 629ms, 397ms</td>
+                            <td>±97ms</td>
+                            <td><span class="badge badge-medium">Medium</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.23</strong></td>
+                            <td>391ms</td>
+                            <td class="run-times">398ms, 390ms, 385ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.22</strong></td>
+                            <td>384ms</td>
+                            <td class="run-times">384ms, 380ms, 389ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.21</strong></td>
+                            <td>386ms</td>
+                            <td class="run-times">379ms, 379ms, 399ms</td>
+                            <td>±9ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.20</strong></td>
+                            <td>388ms</td>
+                            <td class="run-times">388ms, 388ms, 388ms</td>
+                            <td>±0ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.19</strong></td>
+                            <td>382ms</td>
+                            <td class="run-times">389ms, 377ms, 380ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.18</strong></td>
+                            <td>376ms</td>
+                            <td class="run-times">377ms, 378ms, 374ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.17</strong></td>
+                            <td>382ms</td>
+                            <td class="run-times">386ms, 378ms, 382ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.16</strong></td>
+                            <td>376ms</td>
+                            <td class="run-times">372ms, 380ms, 375ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.15</strong></td>
+                            <td>377ms</td>
+                            <td class="run-times">377ms, 375ms, 380ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.14</strong></td>
+                            <td>369ms</td>
+                            <td class="run-times">373ms, 370ms, 365ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.11</strong></td>
+                            <td>372ms</td>
+                            <td class="run-times">376ms, 364ms, 375ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.10</strong></td>
+                            <td>365ms</td>
+                            <td class="run-times">369ms, 364ms, 363ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.9</strong></td>
+                            <td>370ms</td>
+                            <td class="run-times">375ms, 369ms, 366ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.8</strong></td>
+                            <td>364ms</td>
+                            <td class="run-times">370ms, 359ms, 363ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.7</strong></td>
+                            <td>367ms</td>
+                            <td class="run-times">372ms, 363ms, 367ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.6</strong></td>
+                            <td>362ms</td>
+                            <td class="run-times">357ms, 372ms, 358ms</td>
+                            <td>±7ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.5</strong></td>
+                            <td>358ms</td>
+                            <td class="run-times">358ms, 357ms, 359ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.4</strong></td>
+                            <td>354ms</td>
+                            <td class="run-times">355ms, 350ms, 356ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.3</strong></td>
+                            <td>358ms</td>
+                            <td class="run-times">361ms, 358ms, 356ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.2</strong></td>
+                            <td>356ms</td>
+                            <td class="run-times">359ms, 358ms, 350ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.1</strong></td>
+                            <td>355ms</td>
+                            <td class="run-times">360ms, 354ms, 352ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>1.0.0</strong></td>
+                            <td>357ms</td>
+                            <td class="run-times">365ms, 356ms, 351ms</td>
+                            <td>±6ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.126</strong></td>
+                            <td>357ms</td>
+                            <td class="run-times">359ms, 360ms, 353ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.125</strong></td>
+                            <td>360ms</td>
+                            <td class="run-times">356ms, 368ms, 356ms</td>
+                            <td>±6ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.124</strong></td>
+                            <td>343ms</td>
+                            <td class="run-times">343ms, 344ms, 342ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.123</strong></td>
+                            <td>346ms</td>
+                            <td class="run-times">348ms, 349ms, 341ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.122</strong></td>
+                            <td>330ms</td>
+                            <td class="run-times">332ms, 329ms, 330ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.120</strong></td>
+                            <td>331ms</td>
+                            <td class="run-times">336ms, 330ms, 326ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.119</strong></td>
+                            <td>483ms</td>
+                            <td class="run-times">493ms, 480ms, 475ms</td>
+                            <td>±8ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.118</strong></td>
+                            <td>331ms</td>
+                            <td class="run-times">333ms, 330ms, 330ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.117</strong></td>
+                            <td>333ms</td>
+                            <td class="run-times">334ms, 332ms, 332ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.116</strong></td>
+                            <td>331ms</td>
+                            <td class="run-times">334ms, 329ms, 331ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.115</strong></td>
+                            <td>330ms</td>
+                            <td class="run-times">331ms, 332ms, 328ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.114</strong></td>
+                            <td>328ms</td>
+                            <td class="run-times">331ms, 327ms, 326ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.113</strong></td>
+                            <td>333ms</td>
+                            <td class="run-times">333ms, 333ms, 332ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.109</strong></td>
+                            <td>346ms</td>
+                            <td class="run-times">352ms, 344ms, 343ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.108</strong></td>
+                            <td>347ms</td>
+                            <td class="run-times">352ms, 345ms, 343ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.107</strong></td>
+                            <td>346ms</td>
+                            <td class="run-times">350ms, 338ms, 349ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.106</strong></td>
+                            <td>349ms</td>
+                            <td class="run-times">354ms, 347ms, 347ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.105</strong></td>
+                            <td>349ms</td>
+                            <td class="run-times">351ms, 342ms, 353ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.104</strong></td>
+                            <td>346ms</td>
+                            <td class="run-times">347ms, 342ms, 349ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.103</strong></td>
+                            <td>341ms</td>
+                            <td class="run-times">349ms, 334ms, 340ms</td>
+                            <td>±6ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.102</strong></td>
+                            <td>341ms</td>
+                            <td class="run-times">346ms, 338ms, 340ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.101</strong></td>
+                            <td>342ms</td>
+                            <td class="run-times">347ms, 343ms, 335ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.100</strong></td>
+                            <td>348ms</td>
+                            <td class="run-times">353ms, 347ms, 344ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.99</strong></td>
+                            <td>352ms</td>
+                            <td class="run-times">357ms, 353ms, 346ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.98</strong></td>
+                            <td>351ms</td>
+                            <td class="run-times">356ms, 346ms, 350ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.97</strong></td>
+                            <td>350ms</td>
+                            <td class="run-times">354ms, 348ms, 347ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.96</strong></td>
+                            <td>349ms</td>
+                            <td class="run-times">355ms, 347ms, 344ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.94</strong></td>
+                            <td>350ms</td>
+                            <td class="run-times">352ms, 348ms, 349ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.93</strong></td>
+                            <td>375ms</td>
+                            <td class="run-times">359ms, 364ms, 403ms</td>
+                            <td>±20ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.92</strong></td>
+                            <td>340ms</td>
+                            <td class="run-times">346ms, 340ms, 335ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.91</strong></td>
+                            <td>339ms</td>
+                            <td class="run-times">344ms, 336ms, 337ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.90</strong></td>
+                            <td>398ms</td>
+                            <td class="run-times">512ms, 338ms, 344ms</td>
+                            <td>±81ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.89</strong></td>
+                            <td>343ms</td>
+                            <td class="run-times">349ms, 337ms, 344ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.86</strong></td>
+                            <td>392ms</td>
+                            <td class="run-times">377ms, 427ms, 372ms</td>
+                            <td>±25ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.85</strong></td>
+                            <td>368ms</td>
+                            <td class="run-times">372ms, 368ms, 365ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.84</strong></td>
+                            <td>370ms</td>
+                            <td class="run-times">374ms, 366ms, 370ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.81</strong></td>
+                            <td>351ms</td>
+                            <td class="run-times">331ms, 325ms, 398ms</td>
+                            <td>±33ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.80</strong></td>
+                            <td>340ms</td>
+                            <td class="run-times">343ms, 343ms, 335ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.79</strong></td>
+                            <td>336ms</td>
+                            <td class="run-times">341ms, 333ms, 334ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.78</strong></td>
+                            <td>337ms</td>
+                            <td class="run-times">339ms, 338ms, 335ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.77</strong></td>
+                            <td>337ms</td>
+                            <td class="run-times">340ms, 338ms, 332ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.76</strong></td>
+                            <td>337ms</td>
+                            <td class="run-times">340ms, 335ms, 335ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.74</strong></td>
+                            <td>310ms</td>
+                            <td class="run-times">314ms, 309ms, 307ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.73</strong></td>
+                            <td>311ms</td>
+                            <td class="run-times">313ms, 311ms, 309ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.72</strong></td>
+                            <td>310ms</td>
+                            <td class="run-times">314ms, 308ms, 309ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.70</strong></td>
+                            <td>312ms</td>
+                            <td class="run-times">314ms, 311ms, 311ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.69</strong></td>
+                            <td>309ms</td>
+                            <td class="run-times">310ms, 308ms, 308ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.68</strong></td>
+                            <td>368ms</td>
+                            <td class="run-times">449ms, 353ms, 303ms</td>
+                            <td>±61ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.67</strong></td>
+                            <td>308ms</td>
+                            <td class="run-times">315ms, 303ms, 306ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.66</strong></td>
+                            <td>328ms</td>
+                            <td class="run-times">317ms, 361ms, 307ms</td>
+                            <td>±23ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.65</strong></td>
+                            <td>306ms</td>
+                            <td class="run-times">304ms, 307ms, 308ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.64</strong></td>
+                            <td>307ms</td>
+                            <td class="run-times">308ms, 311ms, 302ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.62</strong></td>
+                            <td>378ms</td>
+                            <td class="run-times">504ms, 317ms, 312ms</td>
+                            <td>±89ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.61</strong></td>
+                            <td>310ms</td>
+                            <td class="run-times">307ms, 304ms, 319ms</td>
+                            <td>±6ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.60</strong></td>
+                            <td>349ms</td>
+                            <td class="run-times">441ms, 299ms, 306ms</td>
+                            <td>±65ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.59</strong></td>
+                            <td>312ms</td>
+                            <td class="run-times">315ms, 307ms, 315ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.57</strong></td>
+                            <td>312ms</td>
+                            <td class="run-times">323ms, 306ms, 307ms</td>
+                            <td>±8ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.56</strong></td>
+                            <td>312ms</td>
+                            <td class="run-times">315ms, 309ms, 311ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.55</strong></td>
+                            <td>353ms</td>
+                            <td class="run-times">309ms, 317ms, 432ms</td>
+                            <td>±56ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.54</strong></td>
+                            <td>308ms</td>
+                            <td class="run-times">313ms, 306ms, 305ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.53</strong></td>
+                            <td>297ms</td>
+                            <td class="run-times">299ms, 297ms, 295ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.52</strong></td>
+                            <td>300ms</td>
+                            <td class="run-times">302ms, 302ms, 295ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.51</strong></td>
+                            <td>304ms</td>
+                            <td class="run-times">307ms, 299ms, 306ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.50</strong></td>
+                            <td>333ms</td>
+                            <td class="run-times">396ms, 302ms, 300ms</td>
+                            <td>±45ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.49</strong></td>
+                            <td>299ms</td>
+                            <td class="run-times">299ms, 295ms, 304ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.48</strong></td>
+                            <td>297ms</td>
+                            <td class="run-times">299ms, 298ms, 293ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.47</strong></td>
+                            <td>297ms</td>
+                            <td class="run-times">296ms, 298ms, 296ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.46</strong></td>
+                            <td>300ms</td>
+                            <td class="run-times">300ms, 297ms, 304ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.45</strong></td>
+                            <td>300ms</td>
+                            <td class="run-times">302ms, 298ms, 299ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.44</strong></td>
+                            <td>300ms</td>
+                            <td class="run-times">300ms, 299ms, 302ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.43</strong></td>
+                            <td>303ms</td>
+                            <td class="run-times">312ms, 303ms, 293ms</td>
+                            <td>±8ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.42</strong></td>
+                            <td>306ms</td>
+                            <td class="run-times">313ms, 300ms, 304ms</td>
+                            <td>±5ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.41</strong></td>
+                            <td>302ms</td>
+                            <td class="run-times">304ms, 300ms, 303ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.40</strong></td>
+                            <td>302ms</td>
+                            <td class="run-times">302ms, 299ms, 304ms</td>
+                            <td>±2ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.39</strong></td>
+                            <td>298ms</td>
+                            <td class="run-times">298ms, 299ms, 297ms</td>
+                            <td>±1ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.38</strong></td>
+                            <td>303ms</td>
+                            <td class="run-times">303ms, 307ms, 298ms</td>
+                            <td>±4ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.37</strong></td>
+                            <td>381ms</td>
+                            <td class="run-times">303ms, 309ms, 531ms</td>
+                            <td>±106ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.36</strong></td>
+                            <td>295ms</td>
+                            <td class="run-times">298ms, 294ms, 292ms</td>
+                            <td>±3ms</td>
+                            <td><span class="badge badge-fast">Fast</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.35</strong></td>
+                            <td>1713ms</td>
+                            <td class="run-times">1759ms, 1698ms, 1683ms</td>
+                            <td>±33ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.34</strong></td>
+                            <td>1674ms</td>
+                            <td class="run-times">1654ms, 1668ms, 1699ms</td>
+                            <td>±19ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.33</strong></td>
+                            <td>1691ms</td>
+                            <td class="run-times">1702ms, 1688ms, 1684ms</td>
+                            <td>±8ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.32</strong></td>
+                            <td>1683ms</td>
+                            <td class="run-times">1687ms, 1668ms, 1693ms</td>
+                            <td>±11ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.31</strong></td>
+                            <td>1662ms</td>
+                            <td class="run-times">1659ms, 1682ms, 1644ms</td>
+                            <td>±16ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.30</strong></td>
+                            <td>1581ms</td>
+                            <td class="run-times">1621ms, 1548ms, 1575ms</td>
+                            <td>±30ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.29</strong></td>
+                            <td>1486ms</td>
+                            <td class="run-times">1473ms, 1494ms, 1492ms</td>
+                            <td>±9ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.27</strong></td>
+                            <td>1474ms</td>
+                            <td class="run-times">1498ms, 1457ms, 1468ms</td>
+                            <td>±17ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.25</strong></td>
+                            <td>1486ms</td>
+                            <td class="run-times">1498ms, 1481ms, 1478ms</td>
+                            <td>±9ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.19</strong></td>
+                            <td>1587ms</td>
+                            <td class="run-times">1665ms, 1579ms, 1518ms</td>
+                            <td>±60ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.18</strong></td>
+                            <td>1551ms</td>
+                            <td class="run-times">1565ms, 1532ms, 1556ms</td>
+                            <td>±14ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.14</strong></td>
+                            <td>1575ms</td>
+                            <td class="run-times">1565ms, 1615ms, 1545ms</td>
+                            <td>±29ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                        <tr>
+                            <td><strong>0.2.9</strong></td>
+                            <td>1738ms</td>
+                            <td class="run-times">1887ms, 1643ms, 1684ms</td>
+                            <td>±107ms</td>
+                            <td><span class="badge badge-slow">Slow</span></td>
+                        </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+
+        <footer>
+            <p><strong>CVM - Claude Version Manager</strong></p>
+            <p style="margin-top: 8px;">Benchmarks measured using <code>claude --version</code> command (3 runs per version, full process spawn to exit)</p>
+        </footer>
+    </div>
+
+    <script>
+        const chartConfig = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#252525',
+                    titleColor: '#fff',
+                    bodyColor: '#e0e0e0',
+                    borderColor: '#333',
+                    borderWidth: 1,
+                    callbacks: {
+                        title: (context) => 'Version ' + context[0].label,
+                        label: (context) => {
+                            const dataPoint = allData[context.dataIndex];
+                            return [
+                                'Average: ' + dataPoint.avgTime + 'ms',
+                                'Runs: ' + dataPoint.runs.join('ms, ') + 'ms',
+                                'StdDev: ±' + dataPoint.stdDev + 'ms',
+                                'Min: ' + dataPoint.minTime + 'ms',
+                                'Max: ' + dataPoint.maxTime + 'ms'
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    grid: { color: '#333' },
+                    ticks: { color: '#888' },
+                    title: {
+                        display: true,
+                        text: 'Startup Time (ms)',
+                        color: '#888'
+                    }
+                },
+                x: {
+                    type: 'category',
+                    grid: { color: '#333' },
+                    ticks: {
+                        color: '#888',
+                        maxRotation: 90,
+                        minRotation: 45,
+                        autoSkip: false,
+                        maxTicksLimit: 20,
+                        callback: function(value, index, ticks) {
+                            const totalLabels = ticks.length;
+                            const step = Math.ceil(totalLabels / 15);
+                            // Show first, last, and every Nth label
+                            if (index === 0 || index === totalLabels - 1 || index % step === 0) {
+                                return this.getLabelForValue(value);
+                            }
+                            return '';
+                        }
+                    }
+                }
+            }
+        };
+
+        const allData = [{"version":"0.2.9","timestamp":"2025-11-16T06:08:08.928Z","runs":[1887,1643,1684],"avgTime":1738,"minTime":1643,"maxTime":1887,"stdDev":107},{"version":"0.2.14","timestamp":"2025-11-16T06:08:13.656Z","runs":[1565,1615,1545],"avgTime":1575,"minTime":1545,"maxTime":1615,"stdDev":29},{"version":"0.2.18","timestamp":"2025-11-16T06:08:18.309Z","runs":[1565,1532,1556],"avgTime":1551,"minTime":1532,"maxTime":1565,"stdDev":14},{"version":"0.2.19","timestamp":"2025-11-16T06:08:23.071Z","runs":[1665,1579,1518],"avgTime":1587,"minTime":1518,"maxTime":1665,"stdDev":60},{"version":"0.2.25","timestamp":"2025-11-16T06:08:27.528Z","runs":[1498,1481,1478],"avgTime":1486,"minTime":1478,"maxTime":1498,"stdDev":9},{"version":"0.2.27","timestamp":"2025-11-16T06:08:31.952Z","runs":[1498,1457,1468],"avgTime":1474,"minTime":1457,"maxTime":1498,"stdDev":17},{"version":"0.2.29","timestamp":"2025-11-16T06:08:36.411Z","runs":[1473,1494,1492],"avgTime":1486,"minTime":1473,"maxTime":1494,"stdDev":9},{"version":"0.2.30","timestamp":"2025-11-16T06:08:41.155Z","runs":[1621,1548,1575],"avgTime":1581,"minTime":1548,"maxTime":1621,"stdDev":30},{"version":"0.2.31","timestamp":"2025-11-16T06:08:46.140Z","runs":[1659,1682,1644],"avgTime":1662,"minTime":1644,"maxTime":1682,"stdDev":16},{"version":"0.2.32","timestamp":"2025-11-16T06:08:51.188Z","runs":[1687,1668,1693],"avgTime":1683,"minTime":1668,"maxTime":1693,"stdDev":11},{"version":"0.2.33","timestamp":"2025-11-16T06:08:56.262Z","runs":[1702,1688,1684],"avgTime":1691,"minTime":1684,"maxTime":1702,"stdDev":8},{"version":"0.2.34","timestamp":"2025-11-16T06:09:01.284Z","runs":[1654,1668,1699],"avgTime":1674,"minTime":1654,"maxTime":1699,"stdDev":19},{"version":"0.2.35","timestamp":"2025-11-16T06:09:06.425Z","runs":[1759,1698,1683],"avgTime":1713,"minTime":1683,"maxTime":1759,"stdDev":33},{"version":"0.2.36","timestamp":"2025-11-16T06:09:07.309Z","runs":[298,294,292],"avgTime":295,"minTime":292,"maxTime":298,"stdDev":3},{"version":"0.2.37","timestamp":"2025-11-16T06:09:08.452Z","runs":[303,309,531],"avgTime":381,"minTime":303,"maxTime":531,"stdDev":106},{"version":"0.2.38","timestamp":"2025-11-16T06:09:09.360Z","runs":[303,307,298],"avgTime":303,"minTime":298,"maxTime":307,"stdDev":4},{"version":"0.2.39","timestamp":"2025-11-16T06:09:10.254Z","runs":[298,299,297],"avgTime":298,"minTime":297,"maxTime":299,"stdDev":1},{"version":"0.2.40","timestamp":"2025-11-16T06:09:11.159Z","runs":[302,299,304],"avgTime":302,"minTime":299,"maxTime":304,"stdDev":2},{"version":"0.2.41","timestamp":"2025-11-16T06:09:12.066Z","runs":[304,300,303],"avgTime":302,"minTime":300,"maxTime":304,"stdDev":2},{"version":"0.2.42","timestamp":"2025-11-16T06:09:12.983Z","runs":[313,300,304],"avgTime":306,"minTime":300,"maxTime":313,"stdDev":5},{"version":"0.2.43","timestamp":"2025-11-16T06:09:13.891Z","runs":[312,303,293],"avgTime":303,"minTime":293,"maxTime":312,"stdDev":8},{"version":"0.2.44","timestamp":"2025-11-16T06:09:14.792Z","runs":[300,299,302],"avgTime":300,"minTime":299,"maxTime":302,"stdDev":1},{"version":"0.2.45","timestamp":"2025-11-16T06:09:15.691Z","runs":[302,298,299],"avgTime":300,"minTime":298,"maxTime":302,"stdDev":2},{"version":"0.2.46","timestamp":"2025-11-16T06:09:16.592Z","runs":[300,297,304],"avgTime":300,"minTime":297,"maxTime":304,"stdDev":3},{"version":"0.2.47","timestamp":"2025-11-16T06:09:17.482Z","runs":[296,298,296],"avgTime":297,"minTime":296,"maxTime":298,"stdDev":1},{"version":"0.2.48","timestamp":"2025-11-16T06:09:18.372Z","runs":[299,298,293],"avgTime":297,"minTime":293,"maxTime":299,"stdDev":3},{"version":"0.2.49","timestamp":"2025-11-16T06:09:19.271Z","runs":[299,295,304],"avgTime":299,"minTime":295,"maxTime":304,"stdDev":4},{"version":"0.2.50","timestamp":"2025-11-16T06:09:20.269Z","runs":[396,302,300],"avgTime":333,"minTime":300,"maxTime":396,"stdDev":45},{"version":"0.2.51","timestamp":"2025-11-16T06:09:21.182Z","runs":[307,299,306],"avgTime":304,"minTime":299,"maxTime":307,"stdDev":4},{"version":"0.2.52","timestamp":"2025-11-16T06:09:22.081Z","runs":[302,302,295],"avgTime":300,"minTime":295,"maxTime":302,"stdDev":3},{"version":"0.2.53","timestamp":"2025-11-16T06:09:22.972Z","runs":[299,297,295],"avgTime":297,"minTime":295,"maxTime":299,"stdDev":2},{"version":"0.2.54","timestamp":"2025-11-16T06:09:23.897Z","runs":[313,306,305],"avgTime":308,"minTime":305,"maxTime":313,"stdDev":4},{"version":"0.2.55","timestamp":"2025-11-16T06:09:24.955Z","runs":[309,317,432],"avgTime":353,"minTime":309,"maxTime":432,"stdDev":56},{"version":"0.2.56","timestamp":"2025-11-16T06:09:25.890Z","runs":[315,309,311],"avgTime":312,"minTime":309,"maxTime":315,"stdDev":3},{"version":"0.2.57","timestamp":"2025-11-16T06:09:26.826Z","runs":[323,306,307],"avgTime":312,"minTime":306,"maxTime":323,"stdDev":8},{"version":"0.2.59","timestamp":"2025-11-16T06:09:27.765Z","runs":[315,307,315],"avgTime":312,"minTime":307,"maxTime":315,"stdDev":4},{"version":"0.2.60","timestamp":"2025-11-16T06:09:28.811Z","runs":[441,299,306],"avgTime":349,"minTime":299,"maxTime":441,"stdDev":65},{"version":"0.2.61","timestamp":"2025-11-16T06:09:29.741Z","runs":[307,304,319],"avgTime":310,"minTime":304,"maxTime":319,"stdDev":6},{"version":"0.2.62","timestamp":"2025-11-16T06:09:30.874Z","runs":[504,317,312],"avgTime":378,"minTime":312,"maxTime":504,"stdDev":89},{"version":"0.2.64","timestamp":"2025-11-16T06:09:31.795Z","runs":[308,311,302],"avgTime":307,"minTime":302,"maxTime":311,"stdDev":4},{"version":"0.2.65","timestamp":"2025-11-16T06:09:32.714Z","runs":[304,307,308],"avgTime":306,"minTime":304,"maxTime":308,"stdDev":2},{"version":"0.2.66","timestamp":"2025-11-16T06:09:33.699Z","runs":[317,361,307],"avgTime":328,"minTime":307,"maxTime":361,"stdDev":23},{"version":"0.2.67","timestamp":"2025-11-16T06:09:34.623Z","runs":[315,303,306],"avgTime":308,"minTime":303,"maxTime":315,"stdDev":5},{"version":"0.2.68","timestamp":"2025-11-16T06:09:35.728Z","runs":[449,353,303],"avgTime":368,"minTime":303,"maxTime":449,"stdDev":61},{"version":"0.2.69","timestamp":"2025-11-16T06:09:36.654Z","runs":[310,308,308],"avgTime":309,"minTime":308,"maxTime":310,"stdDev":1},{"version":"0.2.70","timestamp":"2025-11-16T06:09:37.590Z","runs":[314,311,311],"avgTime":312,"minTime":311,"maxTime":314,"stdDev":1},{"version":"0.2.72","timestamp":"2025-11-16T06:09:38.521Z","runs":[314,308,309],"avgTime":310,"minTime":308,"maxTime":314,"stdDev":3},{"version":"0.2.73","timestamp":"2025-11-16T06:09:39.454Z","runs":[313,311,309],"avgTime":311,"minTime":309,"maxTime":313,"stdDev":2},{"version":"0.2.74","timestamp":"2025-11-16T06:09:40.384Z","runs":[314,309,307],"avgTime":310,"minTime":307,"maxTime":314,"stdDev":3},{"version":"0.2.76","timestamp":"2025-11-16T06:09:41.394Z","runs":[340,335,335],"avgTime":337,"minTime":335,"maxTime":340,"stdDev":2},{"version":"0.2.77","timestamp":"2025-11-16T06:09:42.404Z","runs":[340,338,332],"avgTime":337,"minTime":332,"maxTime":340,"stdDev":3},{"version":"0.2.78","timestamp":"2025-11-16T06:09:43.416Z","runs":[339,338,335],"avgTime":337,"minTime":335,"maxTime":339,"stdDev":2},{"version":"0.2.79","timestamp":"2025-11-16T06:09:44.424Z","runs":[341,333,334],"avgTime":336,"minTime":333,"maxTime":341,"stdDev":4},{"version":"0.2.80","timestamp":"2025-11-16T06:09:45.445Z","runs":[343,343,335],"avgTime":340,"minTime":335,"maxTime":343,"stdDev":4},{"version":"0.2.81","timestamp":"2025-11-16T06:09:46.499Z","runs":[331,325,398],"avgTime":351,"minTime":325,"maxTime":398,"stdDev":33},{"version":"0.2.84","timestamp":"2025-11-16T06:09:47.773Z","runs":[374,366,370],"avgTime":370,"minTime":366,"maxTime":374,"stdDev":3},{"version":"0.2.85","timestamp":"2025-11-16T06:09:48.878Z","runs":[372,368,365],"avgTime":368,"minTime":365,"maxTime":372,"stdDev":3},{"version":"0.2.86","timestamp":"2025-11-16T06:09:50.054Z","runs":[377,427,372],"avgTime":392,"minTime":372,"maxTime":427,"stdDev":25},{"version":"0.2.89","timestamp":"2025-11-16T06:09:51.084Z","runs":[349,337,344],"avgTime":343,"minTime":337,"maxTime":349,"stdDev":5},{"version":"0.2.90","timestamp":"2025-11-16T06:09:52.278Z","runs":[512,338,344],"avgTime":398,"minTime":338,"maxTime":512,"stdDev":81},{"version":"0.2.91","timestamp":"2025-11-16T06:09:53.295Z","runs":[344,336,337],"avgTime":339,"minTime":336,"maxTime":344,"stdDev":4},{"version":"0.2.92","timestamp":"2025-11-16T06:09:54.316Z","runs":[346,340,335],"avgTime":340,"minTime":335,"maxTime":346,"stdDev":5},{"version":"0.2.93","timestamp":"2025-11-16T06:09:55.443Z","runs":[359,364,403],"avgTime":375,"minTime":359,"maxTime":403,"stdDev":20},{"version":"0.2.94","timestamp":"2025-11-16T06:09:56.492Z","runs":[352,348,349],"avgTime":350,"minTime":348,"maxTime":352,"stdDev":2},{"version":"0.2.96","timestamp":"2025-11-16T06:09:57.538Z","runs":[355,347,344],"avgTime":349,"minTime":344,"maxTime":355,"stdDev":5},{"version":"0.2.97","timestamp":"2025-11-16T06:09:58.587Z","runs":[354,348,347],"avgTime":350,"minTime":347,"maxTime":354,"stdDev":3},{"version":"0.2.98","timestamp":"2025-11-16T06:09:59.639Z","runs":[356,346,350],"avgTime":351,"minTime":346,"maxTime":356,"stdDev":4},{"version":"0.2.99","timestamp":"2025-11-16T06:10:00.695Z","runs":[357,353,346],"avgTime":352,"minTime":346,"maxTime":357,"stdDev":5},{"version":"0.2.100","timestamp":"2025-11-16T06:10:01.739Z","runs":[353,347,344],"avgTime":348,"minTime":344,"maxTime":353,"stdDev":4},{"version":"0.2.101","timestamp":"2025-11-16T06:10:02.765Z","runs":[347,343,335],"avgTime":342,"minTime":335,"maxTime":347,"stdDev":5},{"version":"0.2.102","timestamp":"2025-11-16T06:10:03.789Z","runs":[346,338,340],"avgTime":341,"minTime":338,"maxTime":346,"stdDev":3},{"version":"0.2.103","timestamp":"2025-11-16T06:10:04.812Z","runs":[349,334,340],"avgTime":341,"minTime":334,"maxTime":349,"stdDev":6},{"version":"0.2.104","timestamp":"2025-11-16T06:10:05.850Z","runs":[347,342,349],"avgTime":346,"minTime":342,"maxTime":349,"stdDev":3},{"version":"0.2.105","timestamp":"2025-11-16T06:10:06.896Z","runs":[351,342,353],"avgTime":349,"minTime":342,"maxTime":353,"stdDev":5},{"version":"0.2.106","timestamp":"2025-11-16T06:10:07.944Z","runs":[354,347,347],"avgTime":349,"minTime":347,"maxTime":354,"stdDev":3},{"version":"0.2.107","timestamp":"2025-11-16T06:10:08.981Z","runs":[350,338,349],"avgTime":346,"minTime":338,"maxTime":350,"stdDev":5},{"version":"0.2.108","timestamp":"2025-11-16T06:10:10.021Z","runs":[352,345,343],"avgTime":347,"minTime":343,"maxTime":352,"stdDev":4},{"version":"0.2.109","timestamp":"2025-11-16T06:10:11.060Z","runs":[352,344,343],"avgTime":346,"minTime":343,"maxTime":352,"stdDev":4},{"version":"0.2.113","timestamp":"2025-11-16T06:10:12.058Z","runs":[333,333,332],"avgTime":333,"minTime":332,"maxTime":333,"stdDev":1},{"version":"0.2.114","timestamp":"2025-11-16T06:10:13.043Z","runs":[331,327,326],"avgTime":328,"minTime":326,"maxTime":331,"stdDev":2},{"version":"0.2.115","timestamp":"2025-11-16T06:10:14.034Z","runs":[331,332,328],"avgTime":330,"minTime":328,"maxTime":332,"stdDev":2},{"version":"0.2.116","timestamp":"2025-11-16T06:10:15.028Z","runs":[334,329,331],"avgTime":331,"minTime":329,"maxTime":334,"stdDev":2},{"version":"0.2.117","timestamp":"2025-11-16T06:10:16.026Z","runs":[334,332,332],"avgTime":333,"minTime":332,"maxTime":334,"stdDev":1},{"version":"0.2.118","timestamp":"2025-11-16T06:10:17.019Z","runs":[333,330,330],"avgTime":331,"minTime":330,"maxTime":333,"stdDev":1},{"version":"0.2.119","timestamp":"2025-11-16T06:10:18.468Z","runs":[493,480,475],"avgTime":483,"minTime":475,"maxTime":493,"stdDev":8},{"version":"0.2.120","timestamp":"2025-11-16T06:10:19.461Z","runs":[336,330,326],"avgTime":331,"minTime":326,"maxTime":336,"stdDev":4},{"version":"0.2.122","timestamp":"2025-11-16T06:10:20.452Z","runs":[332,329,330],"avgTime":330,"minTime":329,"maxTime":332,"stdDev":1},{"version":"0.2.123","timestamp":"2025-11-16T06:10:21.490Z","runs":[348,349,341],"avgTime":346,"minTime":341,"maxTime":349,"stdDev":4},{"version":"0.2.124","timestamp":"2025-11-16T06:10:22.519Z","runs":[343,344,342],"avgTime":343,"minTime":342,"maxTime":344,"stdDev":1},{"version":"0.2.125","timestamp":"2025-11-16T06:10:23.599Z","runs":[356,368,356],"avgTime":360,"minTime":356,"maxTime":368,"stdDev":6},{"version":"0.2.126","timestamp":"2025-11-16T06:10:24.672Z","runs":[359,360,353],"avgTime":357,"minTime":353,"maxTime":360,"stdDev":3},{"version":"1.0.0","timestamp":"2025-11-16T06:10:25.744Z","runs":[365,356,351],"avgTime":357,"minTime":351,"maxTime":365,"stdDev":6},{"version":"1.0.1","timestamp":"2025-11-16T06:10:26.810Z","runs":[360,354,352],"avgTime":355,"minTime":352,"maxTime":360,"stdDev":3},{"version":"1.0.2","timestamp":"2025-11-16T06:10:27.877Z","runs":[359,358,350],"avgTime":356,"minTime":350,"maxTime":359,"stdDev":4},{"version":"1.0.3","timestamp":"2025-11-16T06:10:28.952Z","runs":[361,358,356],"avgTime":358,"minTime":356,"maxTime":361,"stdDev":2},{"version":"1.0.4","timestamp":"2025-11-16T06:10:30.014Z","runs":[355,350,356],"avgTime":354,"minTime":350,"maxTime":356,"stdDev":3},{"version":"1.0.5","timestamp":"2025-11-16T06:10:31.088Z","runs":[358,357,359],"avgTime":358,"minTime":357,"maxTime":359,"stdDev":1},{"version":"1.0.6","timestamp":"2025-11-16T06:10:32.175Z","runs":[357,372,358],"avgTime":362,"minTime":357,"maxTime":372,"stdDev":7},{"version":"1.0.7","timestamp":"2025-11-16T06:10:33.278Z","runs":[372,363,367],"avgTime":367,"minTime":363,"maxTime":372,"stdDev":4},{"version":"1.0.8","timestamp":"2025-11-16T06:10:34.370Z","runs":[370,359,363],"avgTime":364,"minTime":359,"maxTime":370,"stdDev":5},{"version":"1.0.9","timestamp":"2025-11-16T06:10:35.481Z","runs":[375,369,366],"avgTime":370,"minTime":366,"maxTime":375,"stdDev":4},{"version":"1.0.10","timestamp":"2025-11-16T06:10:36.577Z","runs":[369,364,363],"avgTime":365,"minTime":363,"maxTime":369,"stdDev":3},{"version":"1.0.11","timestamp":"2025-11-16T06:10:37.692Z","runs":[376,364,375],"avgTime":372,"minTime":364,"maxTime":376,"stdDev":5},{"version":"1.0.14","timestamp":"2025-11-16T06:10:38.800Z","runs":[373,370,365],"avgTime":369,"minTime":365,"maxTime":373,"stdDev":3},{"version":"1.0.15","timestamp":"2025-11-16T06:10:39.932Z","runs":[377,375,380],"avgTime":377,"minTime":375,"maxTime":380,"stdDev":2},{"version":"1.0.16","timestamp":"2025-11-16T06:10:41.059Z","runs":[372,380,375],"avgTime":376,"minTime":372,"maxTime":380,"stdDev":3},{"version":"1.0.17","timestamp":"2025-11-16T06:10:42.205Z","runs":[386,378,382],"avgTime":382,"minTime":378,"maxTime":386,"stdDev":3},{"version":"1.0.18","timestamp":"2025-11-16T06:10:43.335Z","runs":[377,378,374],"avgTime":376,"minTime":374,"maxTime":378,"stdDev":2},{"version":"1.0.19","timestamp":"2025-11-16T06:10:44.482Z","runs":[389,377,380],"avgTime":382,"minTime":377,"maxTime":389,"stdDev":5},{"version":"1.0.20","timestamp":"2025-11-16T06:10:45.646Z","runs":[388,388,388],"avgTime":388,"minTime":388,"maxTime":388,"stdDev":0},{"version":"1.0.21","timestamp":"2025-11-16T06:10:46.803Z","runs":[379,379,399],"avgTime":386,"minTime":379,"maxTime":399,"stdDev":9},{"version":"1.0.22","timestamp":"2025-11-16T06:10:47.956Z","runs":[384,380,389],"avgTime":384,"minTime":380,"maxTime":389,"stdDev":4},{"version":"1.0.23","timestamp":"2025-11-16T06:10:49.129Z","runs":[398,390,385],"avgTime":391,"minTime":385,"maxTime":398,"stdDev":5},{"version":"1.0.24","timestamp":"2025-11-16T06:10:50.712Z","runs":[556,629,397],"avgTime":527,"minTime":397,"maxTime":629,"stdDev":97},{"version":"1.0.25","timestamp":"2025-11-16T06:10:51.944Z","runs":[413,417,402],"avgTime":411,"minTime":402,"maxTime":417,"stdDev":6},{"version":"1.0.26","timestamp":"2025-11-16T06:10:53.145Z","runs":[401,401,398],"avgTime":400,"minTime":398,"maxTime":401,"stdDev":1},{"version":"1.0.27","timestamp":"2025-11-16T06:10:54.343Z","runs":[404,400,394],"avgTime":399,"minTime":394,"maxTime":404,"stdDev":4},{"version":"1.0.28","timestamp":"2025-11-16T06:10:55.624Z","runs":[402,472,407],"avgTime":427,"minTime":402,"maxTime":472,"stdDev":32},{"version":"1.0.29","timestamp":"2025-11-16T06:10:56.856Z","runs":[413,410,409],"avgTime":411,"minTime":409,"maxTime":413,"stdDev":2},{"version":"1.0.30","timestamp":"2025-11-16T06:10:58.084Z","runs":[416,404,408],"avgTime":409,"minTime":404,"maxTime":416,"stdDev":5},{"version":"1.0.31","timestamp":"2025-11-16T06:10:59.293Z","runs":[403,405,401],"avgTime":403,"minTime":401,"maxTime":405,"stdDev":2},{"version":"1.0.32","timestamp":"2025-11-16T06:11:00.716Z","runs":[403,489,530],"avgTime":474,"minTime":403,"maxTime":530,"stdDev":53},{"version":"1.0.33","timestamp":"2025-11-16T06:11:01.943Z","runs":[414,406,407],"avgTime":409,"minTime":406,"maxTime":414,"stdDev":4},{"version":"1.0.34","timestamp":"2025-11-16T06:11:03.154Z","runs":[403,406,402],"avgTime":404,"minTime":402,"maxTime":406,"stdDev":2},{"version":"1.0.35","timestamp":"2025-11-16T06:11:04.391Z","runs":[416,410,411],"avgTime":412,"minTime":410,"maxTime":416,"stdDev":3},{"version":"1.0.36","timestamp":"2025-11-16T06:11:05.842Z","runs":[470,466,515],"avgTime":484,"minTime":466,"maxTime":515,"stdDev":22},{"version":"1.0.37","timestamp":"2025-11-16T06:11:07.287Z","runs":[517,457,471],"avgTime":482,"minTime":457,"maxTime":517,"stdDev":26},{"version":"1.0.38","timestamp":"2025-11-16T06:11:08.687Z","runs":[482,464,454],"avgTime":467,"minTime":454,"maxTime":482,"stdDev":12},{"version":"1.0.39","timestamp":"2025-11-16T06:11:10.088Z","runs":[474,469,458],"avgTime":467,"minTime":458,"maxTime":474,"stdDev":7},{"version":"1.0.40","timestamp":"2025-11-16T06:11:11.566Z","runs":[470,456,551],"avgTime":492,"minTime":456,"maxTime":551,"stdDev":42},{"version":"1.0.41","timestamp":"2025-11-16T06:11:12.979Z","runs":[474,471,468],"avgTime":471,"minTime":468,"maxTime":474,"stdDev":2},{"version":"1.0.42","timestamp":"2025-11-16T06:11:14.383Z","runs":[466,474,464],"avgTime":468,"minTime":464,"maxTime":474,"stdDev":4},{"version":"1.0.43","timestamp":"2025-11-16T06:11:15.770Z","runs":[465,462,460],"avgTime":462,"minTime":460,"maxTime":465,"stdDev":2},{"version":"1.0.44","timestamp":"2025-11-16T06:11:17.187Z","runs":[478,471,468],"avgTime":472,"minTime":468,"maxTime":478,"stdDev":4},{"version":"1.0.45","timestamp":"2025-11-16T06:11:18.678Z","runs":[549,470,472],"avgTime":497,"minTime":470,"maxTime":549,"stdDev":37},{"version":"1.0.46","timestamp":"2025-11-16T06:11:20.081Z","runs":[471,469,463],"avgTime":468,"minTime":463,"maxTime":471,"stdDev":3},{"version":"1.0.47","timestamp":"2025-11-16T06:11:21.489Z","runs":[479,463,466],"avgTime":469,"minTime":463,"maxTime":479,"stdDev":7},{"version":"1.0.48","timestamp":"2025-11-16T06:11:23.120Z","runs":[473,692,466],"avgTime":544,"minTime":466,"maxTime":692,"stdDev":105},{"version":"1.0.49","timestamp":"2025-11-16T06:11:24.526Z","runs":[467,471,468],"avgTime":469,"minTime":467,"maxTime":471,"stdDev":2},{"version":"1.0.50","timestamp":"2025-11-16T06:11:25.946Z","runs":[469,473,478],"avgTime":473,"minTime":469,"maxTime":478,"stdDev":4},{"version":"1.0.51","timestamp":"2025-11-16T06:11:27.503Z","runs":[474,477,606],"avgTime":519,"minTime":474,"maxTime":606,"stdDev":62},{"version":"1.0.52","timestamp":"2025-11-16T06:11:28.906Z","runs":[473,467,463],"avgTime":468,"minTime":463,"maxTime":473,"stdDev":4},{"version":"1.0.53","timestamp":"2025-11-16T06:11:30.357Z","runs":[485,479,487],"avgTime":484,"minTime":479,"maxTime":487,"stdDev":3},{"version":"1.0.54","timestamp":"2025-11-16T06:11:31.827Z","runs":[484,489,497],"avgTime":490,"minTime":484,"maxTime":497,"stdDev":5},{"version":"1.0.55","timestamp":"2025-11-16T06:11:33.322Z","runs":[490,518,487],"avgTime":498,"minTime":487,"maxTime":518,"stdDev":14},{"version":"1.0.56","timestamp":"2025-11-16T06:11:34.840Z","runs":[515,499,504],"avgTime":506,"minTime":499,"maxTime":515,"stdDev":7},{"version":"1.0.57","timestamp":"2025-11-16T06:11:36.347Z","runs":[506,498,503],"avgTime":502,"minTime":498,"maxTime":506,"stdDev":3},{"version":"1.0.58","timestamp":"2025-11-16T06:11:37.889Z","runs":[504,505,533],"avgTime":514,"minTime":504,"maxTime":533,"stdDev":13},{"version":"1.0.59","timestamp":"2025-11-16T06:11:39.421Z","runs":[510,511,511],"avgTime":511,"minTime":510,"maxTime":511,"stdDev":1},{"version":"1.0.60","timestamp":"2025-11-16T06:11:40.941Z","runs":[506,503,511],"avgTime":507,"minTime":503,"maxTime":511,"stdDev":3},{"version":"1.0.61","timestamp":"2025-11-16T06:11:42.478Z","runs":[513,508,516],"avgTime":512,"minTime":508,"maxTime":516,"stdDev":3},{"version":"1.0.62","timestamp":"2025-11-16T06:11:44.037Z","runs":[516,524,518],"avgTime":519,"minTime":516,"maxTime":524,"stdDev":3},{"version":"1.0.63","timestamp":"2025-11-16T06:11:45.581Z","runs":[518,505,520],"avgTime":514,"minTime":505,"maxTime":520,"stdDev":7},{"version":"1.0.64","timestamp":"2025-11-16T06:11:47.145Z","runs":[527,527,510],"avgTime":521,"minTime":510,"maxTime":527,"stdDev":8},{"version":"1.0.65","timestamp":"2025-11-16T06:11:48.677Z","runs":[509,510,513],"avgTime":511,"minTime":509,"maxTime":513,"stdDev":2},{"version":"1.0.66","timestamp":"2025-11-16T06:11:50.281Z","runs":[524,567,513],"avgTime":535,"minTime":513,"maxTime":567,"stdDev":23},{"version":"1.0.67","timestamp":"2025-11-16T06:11:51.799Z","runs":[509,505,504],"avgTime":506,"minTime":504,"maxTime":509,"stdDev":2},{"version":"1.0.68","timestamp":"2025-11-16T06:11:53.339Z","runs":[520,514,506],"avgTime":513,"minTime":506,"maxTime":520,"stdDev":6},{"version":"1.0.69","timestamp":"2025-11-16T06:11:54.866Z","runs":[515,506,506],"avgTime":509,"minTime":506,"maxTime":515,"stdDev":4},{"version":"1.0.70","timestamp":"2025-11-16T06:11:56.360Z","runs":[500,497,496],"avgTime":498,"minTime":496,"maxTime":500,"stdDev":2},{"version":"1.0.71","timestamp":"2025-11-16T06:11:57.857Z","runs":[499,494,504],"avgTime":499,"minTime":494,"maxTime":504,"stdDev":4},{"version":"1.0.72","timestamp":"2025-11-16T06:11:59.354Z","runs":[498,497,502],"avgTime":499,"minTime":497,"maxTime":502,"stdDev":2},{"version":"1.0.73","timestamp":"2025-11-16T06:12:00.860Z","runs":[498,499,509],"avgTime":502,"minTime":498,"maxTime":509,"stdDev":5},{"version":"1.0.74","timestamp":"2025-11-16T06:12:02.394Z","runs":[507,506,521],"avgTime":511,"minTime":506,"maxTime":521,"stdDev":7},{"version":"1.0.76","timestamp":"2025-11-16T06:12:03.954Z","runs":[516,523,521],"avgTime":520,"minTime":516,"maxTime":523,"stdDev":3},{"version":"1.0.77","timestamp":"2025-11-16T06:12:05.478Z","runs":[512,507,505],"avgTime":508,"minTime":505,"maxTime":512,"stdDev":3},{"version":"1.0.78","timestamp":"2025-11-16T06:12:07.006Z","runs":[505,506,516],"avgTime":509,"minTime":505,"maxTime":516,"stdDev":5},{"version":"1.0.79","timestamp":"2025-11-16T06:12:08.528Z","runs":[513,503,505],"avgTime":507,"minTime":503,"maxTime":513,"stdDev":4},{"version":"1.0.80","timestamp":"2025-11-16T06:12:10.047Z","runs":[513,502,504],"avgTime":506,"minTime":502,"maxTime":513,"stdDev":5},{"version":"1.0.81","timestamp":"2025-11-16T06:12:11.546Z","runs":[498,507,494],"avgTime":500,"minTime":494,"maxTime":507,"stdDev":5},{"version":"1.0.82","timestamp":"2025-11-16T06:12:13.052Z","runs":[506,497,503],"avgTime":502,"minTime":497,"maxTime":506,"stdDev":4},{"version":"1.0.83","timestamp":"2025-11-16T06:12:14.561Z","runs":[503,504,502],"avgTime":503,"minTime":502,"maxTime":504,"stdDev":1},{"version":"1.0.84","timestamp":"2025-11-16T06:12:16.125Z","runs":[524,519,521],"avgTime":521,"minTime":519,"maxTime":524,"stdDev":2},{"version":"1.0.85","timestamp":"2025-11-16T06:12:17.670Z","runs":[520,521,504],"avgTime":515,"minTime":504,"maxTime":521,"stdDev":8},{"version":"1.0.86","timestamp":"2025-11-16T06:12:19.165Z","runs":[498,499,498],"avgTime":498,"minTime":498,"maxTime":499,"stdDev":1},{"version":"1.0.87","timestamp":"2025-11-16T06:12:20.699Z","runs":[498,513,523],"avgTime":511,"minTime":498,"maxTime":523,"stdDev":10},{"version":"1.0.88","timestamp":"2025-11-16T06:12:22.221Z","runs":[519,502,501],"avgTime":507,"minTime":501,"maxTime":519,"stdDev":8},{"version":"1.0.89","timestamp":"2025-11-16T06:12:23.724Z","runs":[506,495,502],"avgTime":501,"minTime":495,"maxTime":506,"stdDev":5},{"version":"1.0.90","timestamp":"2025-11-16T06:12:25.226Z","runs":[506,498,498],"avgTime":501,"minTime":498,"maxTime":506,"stdDev":4},{"version":"1.0.91","timestamp":"2025-11-16T06:12:26.717Z","runs":[500,494,497],"avgTime":497,"minTime":494,"maxTime":500,"stdDev":2},{"version":"1.0.92","timestamp":"2025-11-16T06:12:28.222Z","runs":[500,499,506],"avgTime":502,"minTime":499,"maxTime":506,"stdDev":3},{"version":"1.0.93","timestamp":"2025-11-16T06:12:29.850Z","runs":[586,527,515],"avgTime":543,"minTime":515,"maxTime":586,"stdDev":31},{"version":"1.0.94","timestamp":"2025-11-16T06:12:31.384Z","runs":[508,511,515],"avgTime":511,"minTime":508,"maxTime":515,"stdDev":3},{"version":"1.0.95","timestamp":"2025-11-16T06:12:32.920Z","runs":[505,515,516],"avgTime":512,"minTime":505,"maxTime":516,"stdDev":5},{"version":"1.0.96","timestamp":"2025-11-16T06:12:34.978Z","runs":[502,615,941],"avgTime":686,"minTime":502,"maxTime":941,"stdDev":186},{"version":"1.0.98","timestamp":"2025-11-16T06:12:36.570Z","runs":[571,518,503],"avgTime":531,"minTime":503,"maxTime":571,"stdDev":29},{"version":"1.0.100","timestamp":"2025-11-16T06:12:38.094Z","runs":[509,505,510],"avgTime":508,"minTime":505,"maxTime":510,"stdDev":2},{"version":"1.0.102","timestamp":"2025-11-16T06:12:39.619Z","runs":[504,512,509],"avgTime":508,"minTime":504,"maxTime":512,"stdDev":3},{"version":"1.0.103","timestamp":"2025-11-16T06:12:41.123Z","runs":[506,502,496],"avgTime":501,"minTime":496,"maxTime":506,"stdDev":4},{"version":"1.0.105","timestamp":"2025-11-16T06:12:42.651Z","runs":[506,512,510],"avgTime":509,"minTime":506,"maxTime":512,"stdDev":3},{"version":"1.0.106","timestamp":"2025-11-16T06:12:44.187Z","runs":[516,511,509],"avgTime":512,"minTime":509,"maxTime":516,"stdDev":3},{"version":"1.0.107","timestamp":"2025-11-16T06:12:45.715Z","runs":[511,511,506],"avgTime":509,"minTime":506,"maxTime":511,"stdDev":2},{"version":"1.0.108","timestamp":"2025-11-16T06:12:47.246Z","runs":[518,513,500],"avgTime":510,"minTime":500,"maxTime":518,"stdDev":8},{"version":"1.0.109","timestamp":"2025-11-16T06:12:48.759Z","runs":[508,500,505],"avgTime":504,"minTime":500,"maxTime":508,"stdDev":3},{"version":"1.0.110","timestamp":"2025-11-16T06:12:50.318Z","runs":[501,545,513],"avgTime":520,"minTime":501,"maxTime":545,"stdDev":19},{"version":"1.0.111","timestamp":"2025-11-16T06:12:51.861Z","runs":[511,516,516],"avgTime":514,"minTime":511,"maxTime":516,"stdDev":2},{"version":"1.0.112","timestamp":"2025-11-16T06:12:53.397Z","runs":[516,513,507],"avgTime":512,"minTime":507,"maxTime":516,"stdDev":4},{"version":"1.0.113","timestamp":"2025-11-16T06:12:55.078Z","runs":[514,504,663],"avgTime":560,"minTime":504,"maxTime":663,"stdDev":73},{"version":"1.0.114","timestamp":"2025-11-16T06:12:56.596Z","runs":[503,506,509],"avgTime":506,"minTime":503,"maxTime":509,"stdDev":2},{"version":"1.0.115","timestamp":"2025-11-16T06:12:58.108Z","runs":[501,506,504],"avgTime":504,"minTime":501,"maxTime":506,"stdDev":2},{"version":"1.0.116","timestamp":"2025-11-16T06:12:59.614Z","runs":[510,497,499],"avgTime":502,"minTime":497,"maxTime":510,"stdDev":6},{"version":"1.0.117","timestamp":"2025-11-16T06:13:01.130Z","runs":[510,506,499],"avgTime":505,"minTime":499,"maxTime":510,"stdDev":5},{"version":"1.0.118","timestamp":"2025-11-16T06:13:02.645Z","runs":[508,503,504],"avgTime":505,"minTime":503,"maxTime":508,"stdDev":2},{"version":"1.0.119","timestamp":"2025-11-16T06:13:04.466Z","runs":[512,511,798],"avgTime":607,"minTime":511,"maxTime":798,"stdDev":135},{"version":"1.0.120","timestamp":"2025-11-16T06:13:06.005Z","runs":[515,517,507],"avgTime":513,"minTime":507,"maxTime":517,"stdDev":4},{"version":"1.0.122","timestamp":"2025-11-16T06:13:07.541Z","runs":[516,513,507],"avgTime":512,"minTime":507,"maxTime":516,"stdDev":4},{"version":"1.0.123","timestamp":"2025-11-16T06:13:09.224Z","runs":[511,505,667],"avgTime":561,"minTime":505,"maxTime":667,"stdDev":75},{"version":"1.0.124","timestamp":"2025-11-16T06:13:10.814Z","runs":[533,529,528],"avgTime":530,"minTime":528,"maxTime":533,"stdDev":2},{"version":"1.0.125","timestamp":"2025-11-16T06:13:12.702Z","runs":[630,630,627],"avgTime":629,"minTime":627,"maxTime":630,"stdDev":1},{"version":"1.0.126","timestamp":"2025-11-16T06:13:14.597Z","runs":[627,634,633],"avgTime":631,"minTime":627,"maxTime":634,"stdDev":3},{"version":"1.0.127","timestamp":"2025-11-16T06:13:16.528Z","runs":[647,642,642],"avgTime":644,"minTime":642,"maxTime":647,"stdDev":2},{"version":"1.0.128","timestamp":"2025-11-16T06:13:18.664Z","runs":[643,630,863],"avgTime":712,"minTime":630,"maxTime":863,"stdDev":107},{"version":"2.0.0","timestamp":"2025-11-16T06:13:20.570Z","runs":[641,632,633],"avgTime":635,"minTime":632,"maxTime":641,"stdDev":4},{"version":"2.0.1","timestamp":"2025-11-16T06:13:22.484Z","runs":[644,629,641],"avgTime":638,"minTime":629,"maxTime":644,"stdDev":6},{"version":"2.0.2","timestamp":"2025-11-16T06:13:24.490Z","runs":[641,711,653],"avgTime":668,"minTime":641,"maxTime":711,"stdDev":31},{"version":"2.0.3","timestamp":"2025-11-16T06:13:26.403Z","runs":[647,633,632],"avgTime":637,"minTime":632,"maxTime":647,"stdDev":7},{"version":"2.0.5","timestamp":"2025-11-16T06:13:28.329Z","runs":[635,647,644],"avgTime":642,"minTime":635,"maxTime":647,"stdDev":5},{"version":"2.0.8","timestamp":"2025-11-16T06:13:30.206Z","runs":[631,627,619],"avgTime":626,"minTime":619,"maxTime":631,"stdDev":5},{"version":"2.0.9","timestamp":"2025-11-16T06:13:32.095Z","runs":[636,625,628],"avgTime":630,"minTime":625,"maxTime":636,"stdDev":5},{"version":"2.0.10","timestamp":"2025-11-16T06:13:34.017Z","runs":[661,639,622],"avgTime":641,"minTime":622,"maxTime":661,"stdDev":16},{"version":"2.0.11","timestamp":"2025-11-16T06:13:35.910Z","runs":[642,627,624],"avgTime":631,"minTime":624,"maxTime":642,"stdDev":8},{"version":"2.0.12","timestamp":"2025-11-16T06:13:37.844Z","runs":[645,644,645],"avgTime":645,"minTime":644,"maxTime":645,"stdDev":1},{"version":"2.0.13","timestamp":"2025-11-16T06:13:39.782Z","runs":[647,640,651],"avgTime":646,"minTime":640,"maxTime":651,"stdDev":5},{"version":"2.0.14","timestamp":"2025-11-16T06:13:41.760Z","runs":[654,656,668],"avgTime":659,"minTime":654,"maxTime":668,"stdDev":6},{"version":"2.0.15","timestamp":"2025-11-16T06:13:43.773Z","runs":[678,673,662],"avgTime":671,"minTime":662,"maxTime":678,"stdDev":7},{"version":"2.0.17","timestamp":"2025-11-16T06:13:45.688Z","runs":[641,637,637],"avgTime":638,"minTime":637,"maxTime":641,"stdDev":2},{"version":"2.0.18","timestamp":"2025-11-16T06:13:47.614Z","runs":[643,640,643],"avgTime":642,"minTime":640,"maxTime":643,"stdDev":1},{"version":"2.0.19","timestamp":"2025-11-16T06:13:49.578Z","runs":[652,640,672],"avgTime":655,"minTime":640,"maxTime":672,"stdDev":13},{"version":"2.0.20","timestamp":"2025-11-16T06:13:51.569Z","runs":[670,645,676],"avgTime":664,"minTime":645,"maxTime":676,"stdDev":13},{"version":"2.0.21","timestamp":"2025-11-16T06:13:53.545Z","runs":[675,659,642],"avgTime":659,"minTime":642,"maxTime":675,"stdDev":13},{"version":"2.0.22","timestamp":"2025-11-16T06:13:55.501Z","runs":[654,654,648],"avgTime":652,"minTime":648,"maxTime":654,"stdDev":3},{"version":"2.0.23","timestamp":"2025-11-16T06:13:57.451Z","runs":[659,647,644],"avgTime":650,"minTime":644,"maxTime":659,"stdDev":6},{"version":"2.0.24","timestamp":"2025-11-16T06:13:59.420Z","runs":[659,655,655],"avgTime":656,"minTime":655,"maxTime":659,"stdDev":2},{"version":"2.0.25","timestamp":"2025-11-16T06:14:01.401Z","runs":[662,658,661],"avgTime":660,"minTime":658,"maxTime":662,"stdDev":2},{"version":"2.0.26","timestamp":"2025-11-16T06:14:03.818Z","runs":[726,1024,667],"avgTime":806,"minTime":667,"maxTime":1024,"stdDev":156},{"version":"2.0.27","timestamp":"2025-11-16T06:14:05.768Z","runs":[648,649,653],"avgTime":650,"minTime":648,"maxTime":653,"stdDev":2},{"version":"2.0.28","timestamp":"2025-11-16T06:14:07.719Z","runs":[648,661,642],"avgTime":650,"minTime":642,"maxTime":661,"stdDev":8},{"version":"2.0.29","timestamp":"2025-11-16T06:14:09.679Z","runs":[655,654,651],"avgTime":653,"minTime":651,"maxTime":655,"stdDev":2},{"version":"2.0.30","timestamp":"2025-11-16T06:14:11.665Z","runs":[681,656,649],"avgTime":662,"minTime":649,"maxTime":681,"stdDev":14},{"version":"2.0.31","timestamp":"2025-11-16T06:14:13.622Z","runs":[657,651,648],"avgTime":652,"minTime":648,"maxTime":657,"stdDev":4},{"version":"2.0.32","timestamp":"2025-11-16T06:14:15.590Z","runs":[656,658,654],"avgTime":656,"minTime":654,"maxTime":658,"stdDev":2},{"version":"2.0.33","timestamp":"2025-11-16T06:14:17.567Z","runs":[655,661,660],"avgTime":659,"minTime":655,"maxTime":661,"stdDev":3},{"version":"2.0.34","timestamp":"2025-11-16T06:14:19.540Z","runs":[659,653,660],"avgTime":657,"minTime":653,"maxTime":660,"stdDev":3},{"version":"2.0.35","timestamp":"2025-11-16T06:14:21.553Z","runs":[668,669,676],"avgTime":671,"minTime":668,"maxTime":676,"stdDev":4},{"version":"2.0.36","timestamp":"2025-11-16T06:14:23.553Z","runs":[673,664,662],"avgTime":666,"minTime":662,"maxTime":673,"stdDev":5},{"version":"2.0.37","timestamp":"2025-11-16T06:14:25.555Z","runs":[668,676,658],"avgTime":667,"minTime":658,"maxTime":676,"stdDev":7},{"version":"2.0.41","timestamp":"2025-11-16T06:14:27.238Z","runs":[558,564,561],"avgTime":561,"minTime":558,"maxTime":564,"stdDev":2},{"version":"2.0.42","timestamp":"2025-11-16T06:14:28.945Z","runs":[567,558,582],"avgTime":569,"minTime":558,"maxTime":582,"stdDev":10}];
+
+        // All versions
+        new Chart(document.getElementById('chartAll'), {
+            type: 'line',
+            data: {
+                labels: allData.map(r => r.version),
+                datasets: [{
+                    data: allData.map(r => r.avgTime),
+                    borderColor: '#d4956d',
+                    backgroundColor: 'rgba(212, 149, 109, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 1,
+                    pointHoverRadius: 5,
+                    tension: 0.1
+                }]
+            },
+            options: chartConfig
+        });
+
+        // 0.2.x versions
+        const data02 = allData.filter(r => r.version.startsWith('0.2.'));
+        new Chart(document.getElementById('chart02'), {
+            type: 'line',
+            data: {
+                labels: data02.map(r => r.version),
+                datasets: [{
+                    data: data02.map(r => r.avgTime),
+                    borderColor: '#d4956d',
+                    backgroundColor: 'rgba(212, 149, 109, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    tension: 0.1
+                }]
+            },
+            options: chartConfig
+        });
+
+        // 1.0.x versions
+        const data10 = allData.filter(r => r.version.startsWith('1.0.'));
+        new Chart(document.getElementById('chart10'), {
+            type: 'line',
+            data: {
+                labels: data10.map(r => r.version),
+                datasets: [{
+                    data: data10.map(r => r.avgTime),
+                    borderColor: '#6fa8dc',
+                    backgroundColor: 'rgba(111, 168, 220, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    tension: 0.1
+                }]
+            },
+            options: chartConfig
+        });
+
+        // 2.0.x versions
+        const data20 = allData.filter(r => r.version.startsWith('2.0.'));
+        new Chart(document.getElementById('chart20'), {
+            type: 'line',
+            data: {
+                labels: data20.map(r => r.version),
+                datasets: [{
+                    data: data20.map(r => r.avgTime),
+                    borderColor: '#93c47d',
+                    backgroundColor: 'rgba(147, 196, 125, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    tension: 0.1
+                }]
+            },
+            options: chartConfig
+        });
+
+        function showTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+        }
+
+        let sortDirection = [true, true, true, true]; // true = ascending, false = descending
+
+        function sortTable(columnIndex) {
+            const table = document.getElementById('versionsTable');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            const sortedRows = rows.sort((a, b) => {
+                const aText = a.cells[columnIndex].textContent.trim();
+                const bText = b.cells[columnIndex].textContent.trim();
+
+                let aVal, bVal;
+
+                if (columnIndex === 0) {
+                    // Version - sort numerically
+                    const parseVer = (v) => {
+                        const parts = v.split('.').map(Number);
+                        return parts[0] * 10000 + parts[1] * 100 + parts[2];
+                    };
+                    aVal = parseVer(aText);
+                    bVal = parseVer(bText);
+                } else if (columnIndex === 1 || columnIndex === 3) {
+                    // Avg Time or StdDev - extract number
+                    aVal = parseInt(aText);
+                    bVal = parseInt(bText);
+                } else if (columnIndex === 2) {
+                    // Individual Runs - get first run time
+                    aVal = parseInt(aText.split('ms')[0]);
+                    bVal = parseInt(bText.split('ms')[0]);
+                } else {
+                    aVal = aText;
+                    bVal = bText;
+                }
+
+                if (sortDirection[columnIndex]) {
+                    return aVal > bVal ? 1 : -1;
+                } else {
+                    return aVal < bVal ? 1 : -1;
+                }
+            });
+
+            // Toggle sort direction for next click
+            sortDirection[columnIndex] = !sortDirection[columnIndex];
+
+            // Update table
+            tbody.innerHTML = '';
+            sortedRows.forEach(row => tbody.appendChild(row));
+
+            // Update header indicators
+            table.querySelectorAll('th').forEach((th, i) => {
+                if (th.onclick) {
+                    th.textContent = th.textContent.split(' ')[0] +
+                        (i === columnIndex ? (sortDirection[columnIndex] ? ' ▼' : ' ▲') : ' ▼');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -82,13 +82,100 @@ export class VersionManager {
   }
 
   /**
-   * Get list of installed versions
+   * Get list of installed versions (sorted numerically by default)
    */
   public getInstalledVersions(): string[] {
     if (!fs.existsSync(this.versionsDir)) {
       return [];
     }
-    return fs.readdirSync(this.versionsDir).sort();
+    return fs.readdirSync(this.versionsDir).sort((a, b) => {
+      // Sort versions numerically (e.g., 2.0.9 < 2.0.42)
+      const parseVersion = (v: string) => {
+        const parts = v.split('.').map(Number);
+        return parts[0] * 10000 + parts[1] * 100 + parts[2];
+      };
+      return parseVersion(a) - parseVersion(b);
+    });
+  }
+
+  /**
+   * Fetch all version publish dates from npm
+   */
+  private fetchVersionDates(): Record<string, string> {
+    try {
+      const output = execSync('npm view @anthropic-ai/claude-code time --json', {
+        encoding: 'utf8',
+        stdio: 'pipe',
+      });
+      return JSON.parse(output);
+    } catch (error) {
+      console.error('Failed to fetch version dates from npm');
+      return {};
+    }
+  }
+
+  /**
+   * Get cached version metadata (including publish dates)
+   */
+  private getVersionMetadata(): Record<string, { publishDate: string }> {
+    const metadataFile = path.join(this.cvmDir, 'version-metadata.json');
+
+    if (fs.existsSync(metadataFile)) {
+      try {
+        return JSON.parse(fs.readFileSync(metadataFile, 'utf8'));
+      } catch (error) {
+        // If corrupted, refetch
+      }
+    }
+
+    // Fetch from npm and cache
+    console.log('Fetching version dates from npm...');
+    const dates = this.fetchVersionDates();
+
+    const metadata: Record<string, { publishDate: string }> = {};
+    Object.entries(dates).forEach(([version, date]) => {
+      metadata[version] = { publishDate: date };
+    });
+
+    fs.writeFileSync(metadataFile, JSON.stringify(metadata, null, 2));
+    return metadata;
+  }
+
+  /**
+   * Format date for display
+   */
+  private formatDate(dateString: string): string {
+    const date = new Date(dateString);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[date.getMonth()];
+    const day = date.getDate();
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+
+    return `${month} ${day}, ${year} @ ${hours}:${minutes}`;
+  }
+
+  /**
+   * Get installed versions sorted by publish date
+   */
+  public getInstalledVersionsByDate(): Array<{ version: string; publishDate: string }> {
+    const versions = this.getInstalledVersions();
+    const metadata = this.getVersionMetadata();
+
+    const versionsWithDates = versions
+      .map(version => ({
+        version,
+        publishDate: metadata[version]?.publishDate || '',
+      }))
+      .filter(v => v.publishDate); // Only include versions with known dates
+
+    // Sort by date (oldest to newest)
+    versionsWithDates.sort((a, b) => {
+      return new Date(a.publishDate).getTime() - new Date(b.publishDate).getTime();
+    });
+
+    return versionsWithDates;
   }
 
   /**
@@ -195,6 +282,34 @@ export class VersionManager {
   }
 
   /**
+   * Disable auto-updates for installed version
+   */
+  private disableAutoUpdates(version: string): void {
+    const settingsPath = path.join(
+      os.homedir(),
+      '.cvm/versions',
+      version,
+      'installed/node_modules/@anthropic-ai/claude-code/settings.json'
+    );
+
+    // Claude Code stores settings at ~/.claude/settings.json, but we want version-specific settings
+    // So we'll create a settings file in the installation directory
+    const installDir = path.join(this.versionsDir, version, 'installed');
+    const versionSettingsPath = path.join(installDir, '.claude-settings.json');
+
+    const settings = {
+      autoUpdate: false
+    };
+
+    try {
+      fs.writeFileSync(versionSettingsPath, JSON.stringify(settings, null, 2));
+      console.log(`🔒 Auto-updates disabled for version ${version}`);
+    } catch (error: any) {
+      console.warn(`⚠️  Could not disable auto-updates: ${error.message}`);
+    }
+  }
+
+  /**
    * Install a specific version
    */
   public async install(version: string): Promise<void> {
@@ -231,6 +346,9 @@ export class VersionManager {
 
       // Install
       this.npmInstall(version, extractedDir);
+
+      // Disable auto-updates
+      this.disableAutoUpdates(version);
 
       // Clean up temp
       const tempDir = path.join(this.cvmDir, 'temp');
@@ -302,7 +420,7 @@ export class VersionManager {
   }
 
   /**
-   * List installed versions
+   * List installed versions (sorted by publish date)
    */
   public list(): void {
     if (!fs.existsSync(this.versionsDir)) {
@@ -312,15 +430,22 @@ export class VersionManager {
       return;
     }
 
-    const versions = fs.readdirSync(this.versionsDir).sort();
+    const versionsWithDates = this.getInstalledVersionsByDate();
     const current = this.getCurrentVersion();
 
-    console.log('\nInstalled versions:\n');
+    if (versionsWithDates.length === 0) {
+      console.log('\nNo version metadata available.');
+      console.log('Metadata will be fetched on first use.\n');
+      return;
+    }
 
-    versions.forEach((version) => {
+    console.log('\nInstalled versions (by publish date):\n');
+
+    versionsWithDates.forEach(({ version, publishDate }) => {
       const marker = version === current ? '→' : ' ';
-      const label = version === current ? ' (current)' : '';
-      console.log(`  ${marker} ${version}${label}`);
+      const formattedDate = this.formatDate(publishDate);
+      const currentLabel = version === current ? ' (current)' : '';
+      console.log(`  ${marker} ${version}: ${formattedDate}${currentLabel}`);
     });
 
     console.log('');

@@ -122,6 +122,9 @@ async function measureStartup(claudePath) {
       env: process.env,
     });
 
+    // Close stdin immediately - old versions may wait for it
+    proc.stdin.end();
+
     let output = '';
     proc.stdout.on('data', (data) => { output += data.toString(); });
     proc.stderr.on('data', (data) => { output += data.toString(); });
