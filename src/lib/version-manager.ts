@@ -4,6 +4,7 @@ import * as os from 'os';
 import { execSync } from 'child_process';
 import type { Plugin, PluginContext } from '../types/plugin';
 import { ConfigManager } from './config';
+import packageJson from '../../package.json';
 
 export class VersionManager {
   public readonly cvmDir: string;
@@ -41,7 +42,7 @@ export class VersionManager {
    */
   public getPluginContext(): PluginContext {
     return {
-      cvmVersion: '0.2.0',
+      cvmVersion: packageJson.version,
       cvmDir: this.cvmDir,
       currentVersion: this.getCurrentVersion(),
       installedVersions: this.getInstalledVersions(),

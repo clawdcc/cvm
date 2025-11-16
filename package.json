@@ -1,5 +1,5 @@
 {
-  "name": "@yourorg/cvm",
+  "name": "@clawdcc/cvm",
   "version": "0.1.0",
   "description": "Claude Version Manager - nvm for Claude Code",
   "main": "dist/version-manager.js",
@@ -18,10 +18,19 @@
     "claude",
     "claude-code",
     "version-manager",
-    "nvm"
+    "nvm",
+    "clawdcc"
   ],
-  "author": "",
+  "author": "clawdcc",
   "license": "MIT",
+  "homepage": "https://clawd.cc/cvm",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clawdcc/cvm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/clawdcc/cvm/issues"
+  },
   "engines": {
     "node": ">=14.0.0"
   },
@@ -40,5 +49,11 @@
     "vitest": "^3.2.4"
   },
   "type": "commonjs",
-  "types": "dist/version-manager.d.ts"
+  "types": "dist/version-manager.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ]
 }

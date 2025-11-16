@@ -24,8 +24,11 @@
 ## Installation
 
 ```bash
-# Clone and link
-git clone <repo-url> cvm
+# Install from npm
+npm install -g @clawdcc/cvm
+
+# Or install from source
+git clone https://github.com/clawdcc/cvm.git
 cd cvm
 npm install
 npm run build  # Build TypeScript
@@ -175,7 +178,7 @@ CVM includes comprehensive performance benchmarks across all 249 Claude Code ver
 ### Reports
 
 **View Online:**
-- **[Performance Dashboard](https://YOUR_USERNAME.github.io/cvm/)** - GitHub Pages landing page
+- **[Performance Dashboard](https://clawdcc.github.io/cvm/)** - GitHub Pages landing page
 
 **Download Reports:**
 - **[Full Performance Report](reports/PERFORMANCE_REPORT_3RUN.html)** - Interactive HTML report with charts (3-run benchmarks)
