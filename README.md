@@ -174,7 +174,11 @@ CVM includes comprehensive performance benchmarks across all 249 Claude Code ver
 
 ### Reports
 
-- **[Full Performance Report](reports/PERFORMANCE_REPORT_3RUN.html)** - Interactive HTML report with charts (download and open in browser)
+**View Online:**
+- **[Performance Dashboard](https://YOUR_USERNAME.github.io/cvm/)** - GitHub Pages landing page
+
+**Download Reports:**
+- **[Full Performance Report](reports/PERFORMANCE_REPORT_3RUN.html)** - Interactive HTML report with charts (3-run benchmarks)
 - **[Single-run Report](reports/PERFORMANCE_REPORT.html)** - Original benchmark data
 - **Raw Data:** `~/.cvm/benchmarks-all-3run.json`
 
