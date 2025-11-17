@@ -25,7 +25,7 @@
 
 ```bash
 # Install from npm
-npm install -g @clawdcc/cvm
+npm install -g @clawd/cvm
 
 # Or install from source
 git clone https://github.com/clawdcc/cvm.git

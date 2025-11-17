@@ -244,7 +244,7 @@ if (import.meta.vitest != null) {
 - [x] Add `.gitignore`
 - [x] Add LICENSE (MIT)
 - [ ] Tag version 0.1.0
-- [ ] Publish to npm as `@clawdcc/cvm`
+- [ ] Publish to npm as `@clawd/cvm`
 
 ### Phase 2: Plugin System
 - [ ] Design plugin architecture
