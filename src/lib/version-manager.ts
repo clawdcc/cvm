@@ -705,34 +705,7 @@ export class VersionManager {
         }
       }, 100);
 
-      proc.stdout.on('data', (data) => {
-        output += data.toString();
-      });
-
-      proc.stderr.on('data', (data) => {
-        output += data.toString();
-      });
-
-      // Timeout strategy: No output = viable (just waiting for API)
-      // Output with error message = not viable
-      const timeout = setTimeout(() => {
-        timedOut = true;
-        proc.kill('SIGKILL');
-
-        // If we got NO output during timeout, version is viable (just waiting for API)
-        // If we got output, check if it's the error message
-        if (output.length === 0) {
-          resolve({ viable: true }); // No output = viable version waiting for API
-        } else if (output.includes('1.0.24') || output.includes('needs update')) {
-          resolve({
-            viable: false,
-            reason: 'Version requires update to 1.0.24 or higher',
-          });
-        } else {
-          resolve({ viable: true }); // Got some output, assume viable
-        }
-      }, timeoutMs);
-
+      // Set up output handlers BEFORE timeout
       proc.stdout.on('data', (data) => {
         output += data.toString();
       });
@@ -750,6 +723,27 @@ export class VersionManager {
           });
         }
       });
+
+      // Timeout strategy: No output = viable (just waiting for API)
+      // Output with error message = not viable
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        proc.kill('SIGKILL');
+
+        // Check if output contains error message
+        if (output.includes('1.0.24') || output.includes('needs update')) {
+          resolve({
+            viable: false,
+            reason: 'Version requires update to 1.0.24 or higher',
+          });
+        } else if (output.length === 0) {
+          // No output = viable version waiting for API
+          resolve({ viable: true });
+        } else {
+          // Got other output, assume viable
+          resolve({ viable: true });
+        }
+      }, timeoutMs);
 
       proc.on('close', (code) => {
         clearTimeout(timeout);
