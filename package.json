@@ -1,6 +1,6 @@
 {
-  "name": "@clawd/cvm",
-  "version": "0.1.0",
+  "name": "@clawdcc/cvm",
+  "version": "0.1.1",
   "description": "Claude Version Manager - nvm for Claude Code",
   "main": "dist/version-manager.js",
   "bin": {
