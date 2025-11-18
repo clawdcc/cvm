@@ -271,13 +271,8 @@ node dist/cvm.js install latest
 - [x] Battle testing complete
 - [ ] Publish to npm
 
-**v0.2.0** (Future)
+**v0.2.0+** (Future)
 - [ ] Auto-update detection
-- [ ] Breaking change analysis
-- [ ] Diff between versions
-- [ ] Port analyzer from automated-analysis-pipeline.js
-
-**v0.3.0+** (Future)
 - [ ] Plugin marketplace
 - [ ] Linux support (if demand exists)
 - [ ] Enhanced performance profiling
