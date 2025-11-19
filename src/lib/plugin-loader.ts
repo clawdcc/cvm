@@ -14,6 +14,16 @@ export class PluginLoader {
     }
 
     try {
+      // Register tsx for TypeScript runtime support if loading .ts file
+      if (pluginPath.endsWith('.ts')) {
+        try {
+          const { register } = require('tsx/cjs/api');
+          register();
+        } catch (tsxError: any) {
+          throw new Error(`tsx not available for TypeScript plugin support. Install with: npm install -g tsx`);
+        }
+      }
+
       // Use require for CommonJS plugins
       const pluginModule = require(pluginPath);
       const plugin: Plugin = pluginModule.default || pluginModule;

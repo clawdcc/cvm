@@ -39,7 +39,8 @@
   ],
   "dependencies": {
     "asciichart": "^1.5.25",
-    "commander": "^11.1.0"
+    "commander": "^11.1.0",
+    "tsx": "^4.20.6"
   },
   "devDependencies": {
     "@types/asciichart": "^1.5.8",
