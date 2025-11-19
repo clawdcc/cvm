@@ -29,9 +29,12 @@ jobs:
 
       - name: Test installation flow
         run: |
+          # Build first
+          npm run build
+
           # Test basic CVM commands (macOS only)
-          node bin/cvm.js --version
-          node bin/cvm.js list-remote | head -20
+          node dist/cvm.js --version
+          node dist/cvm.js list-remote | head -20
 
           # Verify symlink support
           mkdir -p /tmp/cvm-test
@@ -50,12 +53,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Check code style
         run: |
+          # Skip npm ci - package is macOS-only
           # Add linting when we add eslint
           echo "✅ No linting configured yet"
