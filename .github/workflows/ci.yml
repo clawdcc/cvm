@@ -25,10 +25,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: |
-          # TODO: Fix vitest ESM/CommonJS config issue
-          echo "⚠️  Tests temporarily skipped - vitest config needs fixing"
-          # npm test
+        run: npm test
 
       - name: Test installation flow
         run: |
