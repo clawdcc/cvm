@@ -783,4 +783,86 @@ export class VersionManager {
       });
     });
   }
+
+  /**
+   * Check for new versions available on npm
+   * Uses cache to avoid excessive npm registry calls
+   */
+  public async checkForNewVersions(): Promise<string[]> {
+    // Check if update checking is enabled
+    if (!this.config.get('checkForUpdates')) {
+      return [];
+    }
+
+    const cacheFile = path.join(this.cvmDir, '.update-cache.json');
+    const now = Date.now();
+    const intervalMs = this.config.get('updateCheckInterval') * 60 * 60 * 1000;
+
+    // Try to load cache
+    try {
+      if (fs.existsSync(cacheFile)) {
+        const cache = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+        const age = now - cache.timestamp;
+
+        // If cache is fresh, return cached results
+        if (age < intervalMs) {
+          return cache.newVersions || [];
+        }
+      }
+    } catch (error) {
+      // Cache read failed, continue with fresh check
+    }
+
+    // Perform fresh check
+    try {
+      // Fetch available versions from npm
+      const output = execSync(
+        'npm view @anthropic-ai/claude-code versions --json',
+        {
+          encoding: 'utf8',
+          stdio: 'pipe',
+        }
+      );
+      const available: string[] = JSON.parse(output);
+      const installed = this.getInstalledVersions();
+      const installedSet = new Set(installed);
+
+      // Find versions not installed
+      const newVersions = available
+        .filter((v: string) => !installedSet.has(v))
+        .slice(-5); // Only show last 5 new versions
+
+      // Save to cache
+      const cache = {
+        timestamp: now,
+        newVersions,
+      };
+      fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
+
+      return newVersions;
+    } catch (error) {
+      // Silent failure - don't block command execution
+      return [];
+    }
+  }
+
+  /**
+   * Display new version notification if any are available
+   * Non-blocking, silent on errors
+   */
+  public async showNewVersionNotification(): Promise<void> {
+    try {
+      const newVersions = await this.checkForNewVersions();
+
+      if (newVersions.length > 0) {
+        console.log('');
+        console.log(`📢 New versions available: ${newVersions.join(', ')}`);
+        console.log(`   Run 'cvm list-remote' to see all versions`);
+        console.log(`   Run 'cvm install <version>' to install`);
+        console.log('');
+      }
+    } catch (error) {
+      // Silent failure - never block or show errors for this feature
+    }
+  }
 }

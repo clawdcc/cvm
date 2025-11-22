@@ -78,6 +78,7 @@ program
       }
 
       await vm.install(version);
+      await vm.showNewVersionNotification();
     } catch (error: any) {
       console.error(`\n❌ Error: ${error.message}\n`);
       process.exit(1);
@@ -91,6 +92,7 @@ program
   .action(async (version: string) => {
     try {
       await vm.use(version);
+      await vm.showNewVersionNotification();
     } catch (error: any) {
       console.error(`\n❌ Error: ${error.message}\n`);
       process.exit(1);
@@ -102,9 +104,10 @@ program
   .command('list')
   .alias('ls')
   .description('List installed versions')
-  .action(() => {
+  .action(async () => {
     try {
       vm.list();
+      await vm.showNewVersionNotification();
     } catch (error: any) {
       console.error(`\n❌ Error: ${error.message}\n`);
       process.exit(1);

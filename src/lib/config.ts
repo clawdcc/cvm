@@ -9,11 +9,15 @@ import * as os from 'os';
 export interface CVMConfig {
   keepTarballs: boolean;
   downloadDelay: number; // milliseconds between downloads
+  checkForUpdates: boolean; // check npm for new versions
+  updateCheckInterval: number; // hours between checks (default: 24)
 }
 
 const DEFAULT_CONFIG: CVMConfig = {
   keepTarballs: false,
   downloadDelay: 0,
+  checkForUpdates: true,
+  updateCheckInterval: 24,
 };
 
 export class ConfigManager {
